@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from src.ui.app import launch_dashboard
+from importlib import import_module
+from typing import Callable
+
 from .app import DesktopApp
+
+
+def _load_launch_dashboard() -> Callable[..., int]:
+    """실행 환경에 맞는 대시보드 진입 함수를 불러온다."""
+    module = import_module("ui.app")
+    return getattr(module, "launch_dashboard")
 
 
 def main() -> int:
     """DesktopApp 런타임에 연결된 PySide6 대시보드를 실행한다."""
-    return launch_dashboard(desktop_app=DesktopApp())
+    return _load_launch_dashboard()(desktop_app=DesktopApp())
 
 
 if __name__ == "__main__":

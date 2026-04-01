@@ -8,14 +8,17 @@ from pathlib import Path
 from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SRC_DIR = ROOT / "src"
+
+for path in (ROOT, SRC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 
 
 def _load_dependencies() -> tuple[Callable[[], Any], Callable[[str], None]]:
-    bootstrap_module = import_module("src.daily_issue_app.bootstrap")
-    schema_module = import_module("src.daily_issue_app.infrastructure.db.schema")
+    bootstrap_module = import_module("daily_issue_app.bootstrap")
+    schema_module = import_module("daily_issue_app.infrastructure.db.schema")
     return getattr(bootstrap_module, "build_application_context"), getattr(schema_module, "bootstrap_sqlite_schema")
 
 

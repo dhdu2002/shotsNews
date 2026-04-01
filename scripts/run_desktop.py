@@ -8,13 +8,16 @@ from pathlib import Path
 from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SRC_DIR = ROOT / "src"
+
+for path in (ROOT, SRC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 
 
 def _load_main() -> Callable[[], int]:
-    module = import_module("src.daily_issue_app.main")
+    module = import_module("daily_issue_app.main")
     return getattr(module, "main")
 
 

@@ -6,10 +6,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from importlib import import_module
 from typing import Any
 from urllib.parse import urlparse
-
-from src.daily_issue_app import DesktopApp
 
 from .models import DashboardState, LinkedStatusStep, LogEntry, SettingsField, SettingsState, SourceStatusRow, TopIssueRow
 
@@ -35,25 +34,39 @@ _SYNC_LABELS = {
 }
 
 
+def _create_desktop_app() -> Any:
+    """실행 환경에 맞는 DesktopApp 인스턴스를 생성한다."""
+    try:
+        module = import_module("daily_issue_app")
+    except ModuleNotFoundError:
+        module = import_module("src.daily_issue_app")
+    desktop_app_cls = getattr(module, "DesktopApp")
+    return desktop_app_cls()
+
+
 @dataclass(slots=True)
 class DesktopAppAdapter:
     """UI가 DesktopApp을 안전하게 호출하도록 감싸는 얇은 어댑터."""
 
-    desktop_app: DesktopApp = field(default_factory=DesktopApp)
+    desktop_app: Any = field(default_factory=_create_desktop_app)
 
     def load_status(self) -> dict[str, Any]:
         """런타임을 시작한 뒤 최신 상태 스냅샷을 반환한다."""
         self.desktop_app.start()
         return self.desktop_app.status()
 
-    def run_now(self) -> dict[str, Any]:
+    def run_now(self, progress_callback: Any = None) -> dict[str, Any]:
         """수동 실행을 시작하고 요약 결과를 반환한다."""
         self.desktop_app.start()
-        return self.desktop_app.run_now()
+        return self.desktop_app.run_now(progress_callback=progress_callback)
 
     def stop(self) -> None:
         """앱 종료 시 런타임을 정리한다."""
         self.desktop_app.stop()
+
+    def save_settings(self, values: dict[str, str]) -> str:
+        """설정값을 저장하고 런타임을 재적용한다."""
+        return self.desktop_app.save_settings(values)
 
 
 class DashboardPresenter:
@@ -95,7 +108,7 @@ class DashboardPresenter:
         )
 
     def present_settings(self, runtime_status: dict[str, Any]) -> SettingsState:
-        """런타임 상태를 설정 탭의 읽기 전용 정보로 변환한다."""
+        """런타임 상태를 설정 탭의 편집 가능 정보로 변환한다."""
         interval_minutes = int(runtime_status.get("scheduler_interval_minutes") or 0)
         notion_enabled = bool(runtime_status.get("notion_enabled"))
 
@@ -103,38 +116,98 @@ class DashboardPresenter:
             heading="런타임 연결 정보",
             description=(
                 "현재 데스크톱 셸이 읽어 온 런타임 구성입니다. "
-                "설정값 저장은 아직 붙지 않았고, 화면은 연결 지점만 제공합니다."
+                "수정 후 저장하면 `config/app.env`에 반영되고 런타임을 다시 불러옵니다."
             ),
             fields=(
                 SettingsField(
+                    "APP_NAME",
                     "앱 이름",
                     str(runtime_status.get("app_name") or "DailyIssueDesktop"),
                     "DesktopApp 시작 시 로드된 런타임 이름입니다.",
                 ),
                 SettingsField(
+                    "APP_SCHEDULER_INTERVAL_MINUTES",
                     "실행 주기",
-                    f"{interval_minutes}분 간격" if interval_minutes else "미설정",
-                    "백그라운드 스케줄러가 이 간격으로 파이프라인을 반복합니다.",
+                    str(interval_minutes or 60),
+                    "백그라운드 스케줄러가 이 분 단위로 파이프라인을 반복합니다.",
                 ),
                 SettingsField(
+                    "APP_RSS_URLS",
+                    "RSS 피드",
+                    str(runtime_status.get("rss_urls") or ""),
+                    "쉼표(,)로 구분된 RSS 피드 주소 목록입니다.",
+                ),
+                SettingsField(
+                    "APP_YOUTUBE_FEED_URLS",
+                    "YouTube 피드",
+                    str(runtime_status.get("youtube_feed_urls") or ""),
+                    "쉼표(,)로 구분된 YouTube 채널 피드 주소 목록입니다.",
+                ),
+                SettingsField(
+                    "APP_REDDIT_SUBREDDITS",
+                    "Reddit 서브레딧",
+                    str(runtime_status.get("reddit_subreddits") or ""),
+                    "쉼표(,)로 구분된 subreddit 이름 목록입니다.",
+                ),
+                SettingsField(
+                    "TWITTER_QUERY",
+                    "X 검색어",
+                    str(runtime_status.get("twitter_query") or ""),
+                    "X / Twitter 수집 시 사용할 검색어입니다.",
+                ),
+                SettingsField(
+                    "NOTION_ENABLED",
+                    "Notion 연동",
+                    "true" if notion_enabled else "false",
+                    "true 또는 false 로 입력합니다.",
+                ),
+                SettingsField(
+                    "NOTION_DATABASE_ID",
+                    "Notion DB ID",
+                    str(runtime_status.get("notion_database_id") or ""),
+                    "결과를 저장할 Notion 데이터베이스 ID입니다.",
+                    secret=True,
+                ),
+                SettingsField(
+                    "NOTION_TOKEN",
+                    "Notion 토큰",
+                    str(runtime_status.get("notion_token_masked") or ""),
+                    "실제 저장 시 별표만 입력된 값은 유지됩니다.",
+                    secret=True,
+                ),
+                SettingsField(
+                    "OPENAI_MODEL",
+                    "스크립트 모델",
+                    str(runtime_status.get("openai_model") or "gpt-4.1-mini"),
+                    "OpenAI API에서 실제로 호출 가능한 모델명을 넣어야 합니다.",
+                ),
+                SettingsField(
+                    "OPENAI_API_KEY",
+                    "OpenAI API 키",
+                    str(runtime_status.get("openai_api_key_masked") or ""),
+                    "ChatGPT Plus 구독과 별개이며, OpenAI Platform API 키가 필요합니다.",
+                    secret=True,
+                ),
+                SettingsField(
+                    "TWITTER_BEARER_TOKEN",
+                    "X Bearer 토큰",
+                    str(runtime_status.get("twitter_bearer_token_masked") or ""),
+                    "비어 있으면 X 수집은 비활성처럼 동작합니다.",
+                    secret=True,
+                ),
+                SettingsField(
+                    "SQLITE_PATH",
                     "SQLite 경로",
                     str(runtime_status.get("db_path") or ""),
                     "파이프라인 실행 결과와 동기화 대기 정보가 저장되는 위치입니다.",
+                    editable=False,
                 ),
                 SettingsField(
+                    "DATA_DIR",
                     "데이터 폴더",
                     str(runtime_status.get("data_dir") or ""),
                     "로그와 캐시를 포함한 로컬 런타임 작업 폴더입니다.",
-                ),
-                SettingsField(
-                    "Notion 연동",
-                    "사용" if notion_enabled else "사용 안 함",
-                    "실제 API 호출은 런타임 계층이 담당하며, UI는 상태만 보여줍니다.",
-                ),
-                SettingsField(
-                    "스크립트 모델",
-                    str(runtime_status.get("openai_model") or "로컬 기본값"),
-                    "스크립트 생성 런타임이 사용하는 모델 이름입니다.",
+                    editable=False,
                 ),
             ),
         )
