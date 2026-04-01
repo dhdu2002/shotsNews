@@ -6,10 +6,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from os import environ
 from typing import TYPE_CHECKING
-from typing import Any
+from typing import Any, Callable
 
 from .bootstrap import build_application_context
+from .config.settings import save_settings_file
 from .infrastructure.db.schema import bootstrap_sqlite_schema
 
 if TYPE_CHECKING:
@@ -41,8 +43,13 @@ class DesktopApp:
         """백그라운드 런타임을 안전하게 정리한다."""
         if self.context is not None:
             self.context.scheduler.stop()
+            self.context = None
 
-    def run_now(self, run_date: date | None = None) -> dict[str, Any]:
+    def run_now(
+        self,
+        run_date: date | None = None,
+        progress_callback: Callable[[int, str], None] | None = None,
+    ) -> dict[str, Any]:
         """하루 파이프라인을 즉시 한 번 실행하고 요약을 반환한다."""
         if self.context is None:
             self.start()
@@ -51,7 +58,7 @@ class DesktopApp:
         assert self.context.pipeline is not None
 
         selected_date = run_date or date.today()
-        result = self.context.pipeline.run_for_date(selected_date)
+        result = self.context.pipeline.run_for_date(selected_date, progress_callback=progress_callback)
         self.last_manual_run = result
         return result
 
@@ -74,6 +81,14 @@ class DesktopApp:
                 "cache_dir": "",
                 "notion_enabled": False,
                 "openai_model": "",
+                "rss_urls": "",
+                "youtube_feed_urls": "",
+                "reddit_subreddits": "",
+                "twitter_query": "",
+                "notion_database_id": "",
+                "notion_token_masked": "",
+                "openai_api_key_masked": "",
+                "twitter_bearer_token_masked": "",
                 "last_manual_run": self.last_manual_run,
             }
 
@@ -113,8 +128,29 @@ class DesktopApp:
             "cache_dir": str(context.paths.cache_dir),
             "notion_enabled": context.settings.notion_enabled,
             "openai_model": context.settings.openai_model,
+            "rss_urls": ", ".join(context.settings.rss_urls),
+            "youtube_feed_urls": ", ".join(context.settings.youtube_feed_urls),
+            "reddit_subreddits": ", ".join(context.settings.reddit_subreddits),
+            "twitter_query": context.settings.twitter_query,
+            "notion_database_id": context.settings.notion_database_id,
+            "notion_token_masked": self._mask_secret(context.settings.notion_token),
+            "openai_api_key_masked": self._mask_secret(context.settings.openai_api_key),
+            "twitter_bearer_token_masked": self._mask_secret(context.settings.twitter_bearer_token),
             "last_manual_run": self.last_manual_run,
         }
+
+    def save_settings(self, values: dict[str, str]) -> str:
+        """설정 파일을 저장하고 런타임을 다시 로드한다."""
+        saved_path = save_settings_file(values)
+
+        for key, value in values.items():
+            normalized = value.strip()
+            if normalized and not normalized.startswith("*"):
+                environ[key] = normalized
+
+        self.stop()
+        self.start()
+        return saved_path
 
     def _build_source_snapshots(self) -> list[dict[str, Any]]:
         """UI에 표시할 수집원 구성 상태를 만든다."""
@@ -154,3 +190,12 @@ class DesktopApp:
         if value is None:
             return None
         return value.isoformat(timespec="seconds")
+
+    @staticmethod
+    def _mask_secret(value: str) -> str:
+        """민감값은 일부만 보이도록 마스킹한다."""
+        if not value:
+            return ""
+        if len(value) <= 8:
+            return "*" * len(value)
+        return f"{value[:4]}{'*' * max(4, len(value) - 8)}{value[-4:]}"
