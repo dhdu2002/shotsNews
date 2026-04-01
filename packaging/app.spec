@@ -14,11 +14,17 @@ datas = [
 
 hiddenimports = [
     "apscheduler.schedulers.background",
+    "daily_issue_app",
+    "daily_issue_app.bootstrap",
+    "daily_issue_app.infrastructure.db.schema",
+    "daily_issue_app.main",
     "feedparser",
     "httpx",
     "PySide6.QtCore",
     "PySide6.QtGui",
     "PySide6.QtWidgets",
+    "ui",
+    "ui.app",
 ]
 
 
