@@ -5,15 +5,17 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QSizePolicy, QVBoxLayout, QWidget
 
 from .models import LinkedStatusStep
 
 
-def _clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
+def _clear_layout(layout: QLayout) -> None:
     """레이아웃 안의 기존 위젯과 하위 레이아웃을 모두 비운다."""
     while layout.count():
         item = layout.takeAt(0)
+        if item is None:
+            continue
         widget = item.widget()
         child_layout = item.layout()
         if widget is not None:

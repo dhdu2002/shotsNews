@@ -49,9 +49,12 @@ class LogEntry:
 class SettingsField:
     """설정 탭의 읽기 전용 항목 한 줄이다."""
 
+    key: str
     label: str
     value: str
     helper_text: str = ""
+    editable: bool = True
+    secret: bool = False
 
 
 @dataclass(frozen=True)
