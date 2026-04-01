@@ -16,12 +16,14 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QProgressBar,
     QPushButton,
     QSizePolicy,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -91,6 +93,46 @@ class DashboardMainWindow(QMainWindow):
         dashboard_layout.setContentsMargins(8, 12, 8, 8)
         dashboard_layout.setSpacing(16)
 
+        issues_section = SectionFrame(
+            "오늘의 Top 5",
+            "가장 최근 실행에서 선정된 상위 이슈를 가장 우선해서 확인합니다.",
+        )
+        self.issues_table = QTableWidget(0, 5)
+        self.issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "상태"])
+        self._prepare_table(self.issues_table)
+        issues_section.body_layout.addWidget(self.issues_table)
+
+        logs_section = SectionFrame(
+            "최근 로그",
+            "선정 결과를 확인하면서 바로 이어서 최근 실행 흐름을 점검합니다.",
+        )
+        self.logs_list = QListWidget()
+        self.logs_list.setObjectName("logsList")
+        logs_section.body_layout.addWidget(self.logs_list)
+
+        dashboard_splitter = QSplitter(Qt.Orientation.Horizontal)
+        dashboard_splitter.setChildrenCollapsible(False)
+        dashboard_splitter.addWidget(issues_section)
+        dashboard_splitter.addWidget(logs_section)
+        dashboard_splitter.setSizes([800, 400])
+        dashboard_layout.addWidget(dashboard_splitter, 1)
+
+        self.dashboard_scroll = QScrollArea()
+        self.dashboard_scroll.setWidgetResizable(True)
+        self.dashboard_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.dashboard_scroll.setWidget(self.dashboard_page)
+
+        _ = self.tab_widget.addTab(self.dashboard_scroll, "대시보드")
+
+        self.status_page = QWidget()
+        status_layout = QVBoxLayout(self.status_page)
+        status_layout.setContentsMargins(8, 12, 8, 8)
+        status_layout.setSpacing(16)
+
+        summary_section = SectionFrame(
+            "실행 요약",
+            "현재 실행 상태, 다음 일정, 최근 실행 결과를 한 번에 확인합니다.",
+        )
         cards_row = QHBoxLayout()
         cards_row.setSpacing(12)
         self.status_card = MetricCard("실행 상태")
@@ -101,18 +143,32 @@ class DashboardMainWindow(QMainWindow):
         cards_row.addWidget(self.next_run_card)
         cards_row.addWidget(self.last_run_card)
         cards_row.addWidget(self.notion_card)
-        dashboard_layout.addLayout(cards_row)
+        summary_section.body_layout.addLayout(cards_row)
+
+        progress_frame = QFrame()
+        progress_layout = QVBoxLayout(progress_frame)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        progress_layout.setSpacing(8)
+
+        self.progress_label = QLabel("대기 중")
+        self.progress_label.setObjectName("progressLabel")
+        progress_layout.addWidget(self.progress_label)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+        progress_layout.addWidget(self.progress_bar)
+        summary_section.body_layout.addWidget(progress_frame)
+        status_layout.addWidget(summary_section)
 
         linked_section = SectionFrame(
             "연결 상태",
-            "소스 수집 → 오늘의 Top 5 → Notion 동기화 흐름을 단순하게 보여줍니다.",
+            "소스 수집 → 오늘의 Top 5 → Notion 동기화 흐름을 상태 중심으로 보여줍니다.",
         )
         self.linked_status_view = LinkedStatusView()
         linked_section.body_layout.addWidget(self.linked_status_view)
-        dashboard_layout.addWidget(linked_section)
-
-        top_splitter = QSplitter(Qt.Orientation.Horizontal)
-        top_splitter.setChildrenCollapsible(False)
+        status_layout.addWidget(linked_section)
 
         source_section = SectionFrame(
             "수집원 상태",
@@ -122,30 +178,14 @@ class DashboardMainWindow(QMainWindow):
         self.source_table.setHorizontalHeaderLabels(["수집원", "상태", "최근 확인", "확인 필요", "메모"])
         self._prepare_table(self.source_table)
         source_section.body_layout.addWidget(self.source_table)
-        top_splitter.addWidget(source_section)
+        status_layout.addWidget(source_section, 1)
 
-        issues_section = SectionFrame(
-            "오늘의 Top 5",
-            "가장 최근 실행에서 선정된 상위 이슈를 간단하게 확인합니다.",
-        )
-        self.issues_table = QTableWidget(0, 5)
-        self.issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "상태"])
-        self._prepare_table(self.issues_table)
-        issues_section.body_layout.addWidget(self.issues_table)
-        top_splitter.addWidget(issues_section)
-        top_splitter.setSizes([640, 560])
-        dashboard_layout.addWidget(top_splitter, 3)
+        self.status_scroll = QScrollArea()
+        self.status_scroll.setWidgetResizable(True)
+        self.status_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.status_scroll.setWidget(self.status_page)
 
-        logs_section = SectionFrame(
-            "최근 로그",
-            "수동 실행, 새로고침, 최근 런타임 요약을 운영자 관점에서 보여줍니다.",
-        )
-        self.logs_list = QListWidget()
-        self.logs_list.setObjectName("logsList")
-        logs_section.body_layout.addWidget(self.logs_list)
-        dashboard_layout.addWidget(logs_section, 2)
-
-        self.tab_widget.addTab(self.dashboard_page, "대시보드")
+        _ = self.tab_widget.addTab(self.status_scroll, "상태")
 
         self.settings_page = QWidget()
         settings_layout = QVBoxLayout(self.settings_page)
@@ -167,22 +207,41 @@ class DashboardMainWindow(QMainWindow):
         self.settings_form.setContentsMargins(0, 4, 0, 0)
         self.settings_form.setSpacing(12)
         settings_section.body_layout.addLayout(self.settings_form)
+
+        action_row = QHBoxLayout()
+        action_row.addStretch(1)
+        self.save_settings_button = QPushButton("설정 저장")
+        self.save_settings_button.setObjectName("primaryButton")
+        action_row.addWidget(self.save_settings_button)
+        settings_section.body_layout.addLayout(action_row)
+
         settings_layout.addWidget(settings_section)
         settings_layout.addStretch(1)
 
-        self.tab_widget.addTab(self.settings_page, "설정")
+        self.settings_scroll = QScrollArea()
+        self.settings_scroll.setWidgetResizable(True)
+        self.settings_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.settings_scroll.setWidget(self.settings_page)
+
+        _ = self.tab_widget.addTab(self.settings_scroll, "설정")
 
         self.setCentralWidget(root)
         self._apply_styles()
 
     def _connect_signals(self) -> None:
         """버튼과 뷰모델 시그널을 연결한다."""
-        self.run_button.clicked.connect(self.viewmodel.request_run)
-        self.refresh_button.clicked.connect(self.viewmodel.request_refresh)
-        self.settings_button.clicked.connect(self.viewmodel.open_settings)
-        self.viewmodel.settings_requested.connect(self._show_settings_tab)
-        self.viewmodel.dashboard_state_changed.connect(self._render_dashboard_state)
-        self.viewmodel.settings_state_changed.connect(self._render_settings_state)
+        _ = self.run_button.clicked.connect(self.viewmodel.request_run)
+        _ = self.refresh_button.clicked.connect(self.viewmodel.request_refresh)
+        _ = self.settings_button.clicked.connect(self.viewmodel.open_settings)
+        _ = self.viewmodel.settings_requested.connect(self._show_settings_tab)
+        _ = self.viewmodel.dashboard_state_changed.connect(self._render_dashboard_state)
+        _ = self.viewmodel.settings_state_changed.connect(self._render_settings_state)
+        _ = self.viewmodel.busy_state_changed.connect(self._set_busy_state)
+        _ = self.viewmodel.progress_changed.connect(self._render_progress)
+        _ = self.viewmodel.settings_saved.connect(self._on_settings_saved)
+        _ = self.save_settings_button.clicked.connect(self._save_settings)
+
+        self._settings_inputs: dict[str, QLineEdit] = {}
 
     def _prepare_table(self, table: QTableWidget) -> None:
         """표의 공통 표시 옵션을 맞춘다."""
@@ -225,9 +284,10 @@ class DashboardMainWindow(QMainWindow):
             self.logs_list.addItem(QListWidgetItem(f"[{entry.timestamp}] {entry.level} · {entry.message}"))
 
     def _render_settings_state(self, state: SettingsState) -> None:
-        """설정 탭을 최신 읽기 전용 상태로 다시 그린다."""
+        """설정 탭을 최신 편집 가능 상태로 다시 그린다."""
         self.settings_heading_label.setText(state.heading)
         self.settings_description_label.setText(state.description)
+        self._settings_inputs = {}
 
         while self.settings_form.rowCount():
             self.settings_form.removeRow(0)
@@ -239,8 +299,11 @@ class DashboardMainWindow(QMainWindow):
             container_layout.setSpacing(4)
 
             line_edit = QLineEdit(field.value)
-            line_edit.setReadOnly(True)
+            line_edit.setReadOnly(not field.editable)
+            if field.secret:
+                line_edit.setEchoMode(QLineEdit.EchoMode.Password)
             container_layout.addWidget(line_edit)
+            self._settings_inputs[field.key] = line_edit
 
             helper_label = QLabel(field.helper_text)
             helper_label.setObjectName("fieldHelper")
@@ -251,7 +314,32 @@ class DashboardMainWindow(QMainWindow):
 
     def _show_settings_tab(self) -> None:
         """설정 탭으로 전환한다."""
-        self.tab_widget.setCurrentWidget(self.settings_page)
+        self.tab_widget.setCurrentWidget(self.settings_scroll)
+
+    def _set_busy_state(self, busy: bool) -> None:
+        """백그라운드 작업 중 버튼 상태를 조정한다."""
+        self.run_button.setEnabled(not busy)
+        self.refresh_button.setEnabled(not busy)
+        self.settings_button.setEnabled(True)
+        self.save_settings_button.setEnabled(not busy)
+
+    def _render_progress(self, value: int, message: str, indeterminate: bool) -> None:
+        """대시보드 상단의 진행률 표시를 갱신한다."""
+        self.progress_label.setText(message)
+        if indeterminate:
+            self.progress_bar.setRange(0, 0)
+        else:
+            self.progress_bar.setRange(0, 100)
+            self.progress_bar.setValue(value)
+
+    def _save_settings(self) -> None:
+        """설정 입력값을 수집해 저장 요청을 보낸다."""
+        payload = {key: widget.text() for key, widget in self._settings_inputs.items()}
+        self.viewmodel.save_settings(payload)
+
+    def _on_settings_saved(self, saved_path: str) -> None:
+        """설정 저장 완료 후 안내 문구를 갱신한다."""
+        self.progress_label.setText(f"설정 저장 완료: {saved_path}")
 
     def _apply_styles(self) -> None:
         """대시보드 전반의 가벼운 스타일을 적용한다."""
@@ -360,15 +448,21 @@ class DashboardMainWindow(QMainWindow):
                 margin-top: 8px;
             }
             QTabBar::tab {
-                background: #e9eef5;
+                background: white;
                 color: #52606d;
+                border: 1px solid #d8dee4;
+                border-bottom: none;
                 padding: 10px 18px;
                 margin-right: 6px;
                 border-top-left-radius: 10px;
                 border-top-right-radius: 10px;
             }
+            QTabBar::tab:hover {
+                background: #f8fafc;
+                color: #243b53;
+            }
             QTabBar::tab:selected {
-                background: white;
+                background: #d1d5db;
                 color: #102a43;
             }
             QListWidget#logsList::item {
