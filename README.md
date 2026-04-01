@@ -1,6 +1,6 @@
-# Daily Issue Desktop MVP (비UI 파이프라인)
+# shotsNews MVP
 
-`src/daily_issue_app`에는 로컬 실행 가능한 MVP 파이프라인이 포함되어 있습니다.
+`src/daily_issue_app`에는 로컬 실행 가능한 데스크톱 MVP 파이프라인이 포함되어 있습니다.
 SQLite 영속화, 소스 수집, Top-5 랭킹, 3톤 스크립트 생성, Notion 동기화 큐, APScheduler 기반 주기 실행이 코어 계층에 연결되어 있습니다.
 
 ## 구현된 MVP 인프라
@@ -15,13 +15,30 @@ SQLite 영속화, 소스 수집, Top-5 랭킹, 3톤 스크립트 생성, Notion 
 - APScheduler 기반 런타임 스케줄링
 - `DailyIssuePipeline` 중심의 엔드투엔드 실행 경로
 
-## 비UI 파이프라인 실행
+## 빠른 시작
 
-`config/app.example.env`를 참고해 환경변수를 설정한 뒤 실행합니다.
+1. 의존성 설치
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+2. 환경파일 준비
+
+- `config/app.example.env`를 `config/app.env`로 복사
+- 또는 루트 `.env` 파일 생성
+
+이제 앱은 `config/app.env` 또는 `.env`를 자동으로 읽습니다.
+
+3. 실행
 
 ```bash
 python scripts/run_desktop.py
 ```
+
+## 상세 설정 가이드
+
+- `docs/setup.md`
 
 ## UI 연동 진입점
 

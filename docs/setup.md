@@ -1,0 +1,83 @@
+# shotsNews MVP 실행 설정 가이드
+
+## 1. 기본 설치
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+## 2. 환경파일 만들기
+
+아래 둘 중 하나를 사용합니다.
+
+- `config/app.env`
+- 프로젝트 루트 `.env`
+
+가장 쉬운 방법은 예시 파일 복사입니다.
+
+```bash
+copy config\app.example.env config\app.env
+```
+
+그 다음 `config/app.env` 값을 실제 값으로 수정합니다.
+
+## 3. 꼭 넣어야 하는 값
+
+### OpenAI
+- `OPENAI_API_KEY`
+
+### Notion
+- `NOTION_TOKEN`
+- `NOTION_DATABASE_ID`
+- `NOTION_ENABLED=true`
+
+## 4. 선택 값
+
+### Reddit
+- `APP_REDDIT_SUBREDDITS`
+- `APP_REDDIT_USER_AGENT`
+
+### YouTube
+- `APP_YOUTUBE_FEED_URLS`
+
+### Twitter/X
+- `TWITTER_BEARER_TOKEN`
+- `TWITTER_QUERY`
+
+토큰이 없으면 해당 소스는 자동으로 비활성처럼 동작합니다.
+
+## 5. 실행 방법
+
+### 데스크톱 UI 실행
+
+```bash
+python scripts/run_desktop.py
+```
+
+### SQLite만 먼저 생성
+
+```bash
+python scripts/bootstrap_db.py
+```
+
+## 6. Notion 준비 체크리스트
+
+1. Notion에서 데이터베이스 생성
+2. 통합(Integration) 생성
+3. 데이터베이스에 통합 연결
+4. 데이터베이스 ID 확인
+5. `NOTION_TOKEN`, `NOTION_DATABASE_ID` 입력
+6. `NOTION_ENABLED=true` 변경
+
+## 7. 권장 초기값
+
+- `APP_TOP_K=5`
+- `APP_SCHEDULER_INTERVAL_MINUTES=60`
+- `APP_RSS_URLS`는 2~5개 정도부터 시작
+- Twitter/X는 토큰 확보 전까지 비워 두기
+
+## 8. 문제 확인 포인트
+
+- OpenAI 키가 없으면 실제 대본 대신 대체 문구가 나올 수 있음
+- Notion 값이 비어 있으면 동기화는 건너뜀
+- Windows 콘솔에서는 일부 한글 출력이 깨져 보일 수 있으나 실행 자체와는 별개일 수 있음
