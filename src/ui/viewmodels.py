@@ -26,7 +26,7 @@ def build_mock_dashboard_state() -> DashboardState:
             SourceStatusRow("RSS", "대기", "아직 없음", 0, "DesktopApp 연결 후 실제 상태를 표시합니다."),
         ),
         top_issue_rows=(
-            TopIssueRow(1, "런타임 연결을 기다리는 중입니다.", "출처 없음", "미분류", "대기"),
+            TopIssueRow(1, "런타임 연결을 기다리는 중입니다.", "런타임 연결을 기다리는 중입니다.", "출처 없음", "", "미분류", "0.0", "대기"),
         ),
         log_entries=(
             LogEntry("지금", "안내", "PySide6 화면이 준비되었고 런타임 연결을 기다리는 중입니다."),

@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import Qt
+from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFormLayout,
@@ -95,10 +97,10 @@ class DashboardMainWindow(QMainWindow):
 
         issues_section = SectionFrame(
             "오늘의 Top 5",
-            "가장 최근 실행에서 선정된 상위 이슈를 가장 우선해서 확인합니다.",
+            "각 분류별 1위부터 5위까지의 이슈와 숏폼 점수를 우선해서 확인합니다.",
         )
-        self.issues_table = QTableWidget(0, 5)
-        self.issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "상태"])
+        self.issues_table = QTableWidget(0, 6)
+        self.issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "점수", "상태"])
         self._prepare_table(self.issues_table)
         issues_section.body_layout.addWidget(self.issues_table)
 
@@ -240,6 +242,7 @@ class DashboardMainWindow(QMainWindow):
         _ = self.viewmodel.progress_changed.connect(self._render_progress)
         _ = self.viewmodel.settings_saved.connect(self._on_settings_saved)
         _ = self.save_settings_button.clicked.connect(self._save_settings)
+        _ = self.issues_table.cellClicked.connect(self._open_issue_link)
 
         self._settings_inputs: dict[str, QLineEdit] = {}
 
@@ -275,9 +278,21 @@ class DashboardMainWindow(QMainWindow):
 
         self.issues_table.setRowCount(len(state.top_issue_rows))
         for row_index, row in enumerate(state.top_issue_rows):
-            values = [str(row.rank), row.title, row.source_name, row.severity, row.readiness]
+            values = [
+                str(row.rank),
+                row.translated_title,
+                row.source_name,
+                row.severity,
+                row.score,
+                row.readiness,
+            ]
             for column_index, value in enumerate(values):
-                self.issues_table.setItem(row_index, column_index, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                if column_index in {1, 2} and row.source_url:
+                    item.setData(Qt.ItemDataRole.UserRole, row.source_url)
+                    item.setToolTip(row.source_url)
+                    item.setForeground(Qt.GlobalColor.blue)
+                self.issues_table.setItem(row_index, column_index, item)
 
         self.logs_list.clear()
         for entry in state.log_entries:
@@ -340,6 +355,19 @@ class DashboardMainWindow(QMainWindow):
     def _on_settings_saved(self, saved_path: str) -> None:
         """설정 저장 완료 후 안내 문구를 갱신한다."""
         self.progress_label.setText(f"설정 저장 완료: {saved_path}")
+
+    def _open_issue_link(self, row: int, column: int) -> None:
+        """이슈/출처 클릭 시 원문 링크를 연다."""
+        if column not in {1, 2}:
+            return
+
+        item = self.issues_table.item(row, column)
+        if item is None:
+            return
+
+        url = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(url, str) and url:
+            QDesktopServices.openUrl(QUrl(url))
 
     def _apply_styles(self) -> None:
         """대시보드 전반의 가벼운 스타일을 적용한다."""

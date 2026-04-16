@@ -31,8 +31,11 @@ class TopIssueRow:
 
     rank: int
     title: str
+    translated_title: str
     source_name: str
+    source_url: str
     severity: str
+    score: str
     readiness: str
 
 
