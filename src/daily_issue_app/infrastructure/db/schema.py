@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS issues (
     rank INTEGER NOT NULL,
     category TEXT NOT NULL,
     title TEXT NOT NULL,
+    score REAL NOT NULL DEFAULT 0,
     key_points_json TEXT NOT NULL,
     source_url TEXT NOT NULL,
     sync_status TEXT NOT NULL DEFAULT 'pending',
@@ -81,4 +82,7 @@ def bootstrap_sqlite_schema(db_path: str | Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with connect_sqlite(path) as conn:
         conn.executescript(SCHEMA_SQL)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(issues)").fetchall()}
+        if "score" not in columns:
+            conn.execute("ALTER TABLE issues ADD COLUMN score REAL NOT NULL DEFAULT 0")
         conn.commit()

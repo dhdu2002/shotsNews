@@ -22,14 +22,15 @@ class SqliteIssueRepository:
         """랭킹 이슈를 저장하고 PersistedIssue 목록을 반환한다."""
         persisted: list[PersistedIssue] = []
         with connect_sqlite(self._db_path) as conn:
+            conn.execute("DELETE FROM issues WHERE run_date = ?", (run_date.isoformat(),))
             for item in issues:
                 issue_id = str(uuid4())
                 conn.execute(
                     """
                     INSERT INTO issues(
                         issue_id, run_date, rank, category, title,
-                        key_points_json, source_url, sync_status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        score, key_points_json, source_url, sync_status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         issue_id,
@@ -37,6 +38,7 @@ class SqliteIssueRepository:
                         item.rank,
                         item.category.value,
                         item.title,
+                        item.score,
                         json.dumps(item.key_points, ensure_ascii=False),
                         item.source_url,
                         RecordSyncStatus.PENDING.value,
@@ -258,9 +260,10 @@ class SqliteIssueRepository:
             rows = conn.execute(
                 """
                 SELECT rank, title, category, source_url, sync_status
+                       , score
                 FROM issues
                 WHERE run_date = ?
-                ORDER BY rank ASC
+                ORDER BY category ASC, rank ASC
                 LIMIT ?
                 """,
                 (run_date.isoformat(), limit),
@@ -273,6 +276,7 @@ class SqliteIssueRepository:
                 "category": row["category"],
                 "source_url": row["source_url"],
                 "sync_status": row["sync_status"],
+                "score": row["score"],
             }
             for row in rows
         ]
