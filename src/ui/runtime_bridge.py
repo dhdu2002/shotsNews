@@ -7,8 +7,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from importlib import import_module
+import json
 from typing import Any
+from urllib.parse import quote_plus
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from .models import DashboardState, LinkedStatusStep, LogEntry, SettingsField, SettingsState, SourceStatusRow, TopIssueRow
 
@@ -32,6 +35,8 @@ _SYNC_LABELS = {
     "synced": "완료",
     "failed": "실패",
 }
+
+_TITLE_TRANSLATION_CACHE: dict[str, str] = {}
 
 
 def _create_desktop_app() -> Any:
@@ -330,20 +335,56 @@ class DashboardPresenter:
         return tuple(rows)
 
     def _build_top_issue_rows(self, top_issues: list[dict[str, Any]]) -> tuple[TopIssueRow, ...]:
-        """오늘의 Top 5 표 데이터를 구성한다."""
+        """분류별 Top 5 표 데이터를 구성한다."""
         rows: list[TopIssueRow] = []
         for issue in top_issues:
             category = str(issue.get("category") or "")
+            title = str(issue.get("title") or "제목 없음")
+            source_url = str(issue.get("source_url") or "")
             rows.append(
                 TopIssueRow(
                     rank=int(issue.get("rank") or 0),
-                    title=str(issue.get("title") or "제목 없음"),
-                    source_name=self._build_source_label_from_url(str(issue.get("source_url") or "")),
+                    title=title,
+                    translated_title=self._translate_title(title),
+                    source_name=self._build_source_label_from_url(source_url),
+                    source_url=source_url,
                     severity=_CATEGORY_LABELS.get(category, category or "미분류"),
+                    score=f"{float(issue.get('score') or 0):.1f}",
                     readiness=_SYNC_LABELS.get(str(issue.get("sync_status") or ""), "대기"),
                 )
             )
         return tuple(rows)
+
+    def _translate_title(self, title: str) -> str:
+        """영문 제목은 간단히 한국어로 번역해 표시한다."""
+        if not title:
+            return "제목 없음"
+        if title in _TITLE_TRANSLATION_CACHE:
+            return _TITLE_TRANSLATION_CACHE[title]
+        if self._looks_korean(title):
+            _TITLE_TRANSLATION_CACHE[title] = title
+            return title
+
+        translated = title
+        try:
+            url = (
+                "https://translate.googleapis.com/translate_a/single"
+                f"?client=gtx&sl=auto&tl=ko&dt=t&q={quote_plus(title)}"
+            )
+            request = Request(url, headers={"User-Agent": "shotsNews/0.1"})
+            with urlopen(request, timeout=3) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            translated = "".join(part[0] for part in payload[0] if part and part[0]).strip() or title
+        except Exception:
+            translated = title
+
+        _TITLE_TRANSLATION_CACHE[title] = translated
+        return translated
+
+    @staticmethod
+    def _looks_korean(value: str) -> bool:
+        """문자열에 한글이 포함되어 있는지 확인한다."""
+        return any("가" <= char <= "힣" for char in value)
 
     def _build_runtime_logs(self, runtime_status: dict[str, Any]) -> tuple[LogEntry, ...]:
         """런타임 스냅샷에서 최근 로그 패널용 메시지를 만든다."""

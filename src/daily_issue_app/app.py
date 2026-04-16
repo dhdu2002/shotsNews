@@ -102,7 +102,7 @@ class DesktopApp:
         pending = context.repository.list_pending_sync(latest_run_date)
         top_issues = context.repository.list_ranked_issue_summaries(
             latest_run_date,
-            limit=context.settings.top_k,
+            limit=context.settings.top_k * 5,
         )
         source_failures = []
         if latest_run is not None:
