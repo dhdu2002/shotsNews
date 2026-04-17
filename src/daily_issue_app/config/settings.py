@@ -136,14 +136,9 @@ def load_settings() -> AppSettings:
         openai_api_key=getenv("OPENAI_API_KEY", ""),
         request_timeout_seconds=int(getenv("APP_REQUEST_TIMEOUT_SECONDS", "15")),
         scheduler_interval_minutes=int(getenv("APP_SCHEDULER_INTERVAL_MINUTES", "60")),
-        rss_urls=_split_csv(
-            getenv(
-                "APP_RSS_URLS",
-                "https://hnrss.org/frontpage,https://www.theverge.com/rss/index.xml",
-            )
-        ),
+        rss_urls=_split_csv(getenv("APP_RSS_URLS", "")),
         youtube_feed_urls=_split_csv(getenv("APP_YOUTUBE_FEED_URLS", "")),
-        reddit_subreddits=_split_csv(getenv("APP_REDDIT_SUBREDDITS", "technology,MachineLearning")),
+        reddit_subreddits=_split_csv(getenv("APP_REDDIT_SUBREDDITS", "")),
         reddit_user_agent=getenv("APP_REDDIT_USER_AGENT", "daily-issue-desktop/0.1"),
         twitter_bearer_token=getenv("TWITTER_BEARER_TOKEN", ""),
         twitter_query=getenv("TWITTER_QUERY", "ai OR technology"),

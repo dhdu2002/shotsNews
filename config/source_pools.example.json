@@ -3,54 +3,76 @@
     "ai_tech": {
       "rss": [
         "https://hnrss.org/frontpage",
-        "https://www.theverge.com/rss/index.xml"
+        "https://www.theverge.com/rss/index.xml",
+        "https://www.technologyreview.com/feed/"
       ],
       "youtube": [
         "https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg"
       ],
       "reddit": [
         "technology",
-        "MachineLearning"
+        "MachineLearning",
+        "artificial"
       ],
       "twitter": [
-        "ai OR technology OR semiconductor"
+        "ai OR LLM OR semiconductor OR openai"
       ]
     },
     "economy": {
       "rss": [
-        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"
+        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+        "https://feeds.reuters.com/reuters/businessNews"
       ],
       "reddit": [
         "economy",
-        "stocks"
+        "stocks",
+        "investing"
       ],
       "twitter": [
-        "economy OR inflation OR market"
+        "economy OR inflation OR market OR recession"
       ]
     },
     "society": {
       "rss": [
-        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+        "http://feeds.bbci.co.uk/news/world/rss.xml"
+      ],
+      "reddit": [
+        "worldnews",
+        "news"
+      ],
+      "twitter": [
+        "society OR policy OR education OR environment"
       ]
     },
     "health": {
       "rss": [
-        "https://www.medicalnewstoday.com/rss"
+        "https://www.medicalnewstoday.com/rss",
+        "https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC"
       ],
       "reddit": [
         "health",
         "medicine"
+      ],
+      "twitter": [
+        "health OR medical OR disease OR wellness"
       ]
     },
     "entertainment_trend": {
       "rss": [
-        "https://www.billboard.com/feed/"
+        "https://www.billboard.com/feed/",
+        "https://pitchfork.com/rss/news/"
       ],
       "youtube": [
-        "https://www.youtube.com/feeds/videos.xml?channel_id=UC-9-kyTW8ZkZNDHQJ6FgpwQ"
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UC295-Dw0tDd6y5cuauRnxg"
+      ],
+      "reddit": [
+        "entertainment",
+        "movies",
+        "kpop"
       ],
       "twitter": [
-        "entertainment OR kpop OR viral"
+        "entertainment OR kpop OR viral OR celebrity"
       ]
     }
   }
