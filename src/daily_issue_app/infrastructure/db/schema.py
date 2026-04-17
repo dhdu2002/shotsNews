@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS issues (
     category TEXT NOT NULL,
     title TEXT NOT NULL,
     score REAL NOT NULL DEFAULT 0,
+    score_breakdown_json TEXT NOT NULL DEFAULT '{}',
     key_points_json TEXT NOT NULL,
     source_url TEXT NOT NULL,
     sync_status TEXT NOT NULL DEFAULT 'pending',
@@ -81,8 +82,14 @@ def bootstrap_sqlite_schema(db_path: str | Path) -> None:
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with connect_sqlite(path) as conn:
-        conn.executescript(SCHEMA_SQL)
-        columns = {row[1] for row in conn.execute("PRAGMA table_info(issues)").fetchall()}
+        _ = conn.executescript(SCHEMA_SQL)
+        table_info_rows = conn.execute("PRAGMA table_info(issues)").fetchall()
+        columns = {str(row[1]) for row in table_info_rows}
         if "score" not in columns:
-            conn.execute("ALTER TABLE issues ADD COLUMN score REAL NOT NULL DEFAULT 0")
+            _ = conn.execute("ALTER TABLE issues ADD COLUMN score REAL NOT NULL DEFAULT 0")
+        if "score_breakdown_json" not in columns:
+            _ = conn.execute("ALTER TABLE issues ADD COLUMN score_breakdown_json TEXT NOT NULL DEFAULT '{}' ")
+        _ = conn.execute(
+            "UPDATE issues SET score_breakdown_json = '{}' WHERE score_breakdown_json IS NULL OR TRIM(score_breakdown_json) = ''"
+        )
         conn.commit()
