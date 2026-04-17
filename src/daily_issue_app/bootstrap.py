@@ -18,7 +18,6 @@ from .infrastructure.services.openai_script_generator import (
     OpenAIScriptGenerator,
 )
 from .infrastructure.services.ranking_service import RankingService
-from .infrastructure.services.reddit_collector import RedditCollector
 from .infrastructure.services.rss_collector import RSSCollector
 from .infrastructure.services.twitter_collector import TwitterXCollector
 from .infrastructure.services.youtube_collector import YouTubeCollector
@@ -63,12 +62,6 @@ def build_application_context() -> ApplicationContext:
                 feed_urls=settings.youtube_feed_urls,
                 category_feed_urls=settings.source_pools.youtube,
                 default_limit=settings.max_candidates_per_category,
-                timeout_seconds=settings.request_timeout_seconds,
-            ),
-            "reddit": RedditCollector(
-                subreddits=settings.reddit_subreddits,
-                category_subreddits=settings.source_pools.reddit,
-                user_agent=settings.reddit_user_agent,
                 timeout_seconds=settings.request_timeout_seconds,
             ),
             "twitter_x": TwitterXCollector(

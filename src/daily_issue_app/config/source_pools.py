@@ -51,46 +51,54 @@ class CategorySourcePools:
 
 _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
     IssueCategory.AI_TECH: (
-        "https://hnrss.org/frontpage",
-        "https://www.theverge.com/rss/index.xml",
-        "https://www.technologyreview.com/feed/",
-        "https://techcrunch.com/feed/",
-        "https://feeds.arstechnica.com/arstechnica/index/",
+        "https://hnrss.org/frontpage",                              # Hacker News
+        "https://www.theverge.com/rss/index.xml",                   # The Verge
+        "https://www.technologyreview.com/feed/",                   # MIT Technology Review
+        "https://techcrunch.com/feed/",                            # TechCrunch
+        "https://feeds.arstechnica.com/arstechnica/index/",        # Ars Technica
+        "https://venturebeat.com/category/ai/feed/",               # VentureBeat AI
+        "https://www.wired.com/feed/rss",                          # Wired
+        "https://spectrum.ieee.org/rss/fulltext",                   # IEEE Spectrum
     ),
     IssueCategory.ECONOMY: (
-        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
-        "https://feeds.reuters.com/reuters/businessNews",
-        "https://www.cnbc.com/id/20910258/device/rss/rss.html",
-        "https://feeds.marketwatch.com/marketwatch/topstories/",
-        "https://feeds.npr.org/1006/rss.xml",
+        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",           # Wall Street Journal
+        "https://feeds.reuters.com/reuters/businessNews",           # Reuters Business
+        "https://www.cnbc.com/id/20910258/device/rss/rss.html",    # CNBC Markets
+        "https://feeds.marketwatch.com/marketwatch/topstories/",   # MarketWatch
+        "https://feeds.npr.org/1006/rss.xml",                      # NPR Economy
+        "https://feeds.apnews.com/rss/business",                   # AP Business
+        "https://www.economist.com/finance-and-economics/rss.xml", # The Economist
     ),
     IssueCategory.SOCIETY: (
-        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-        "http://feeds.bbci.co.uk/news/world/rss.xml",
-        "https://www.theguardian.com/world/rss",
-        "https://feeds.npr.org/1004/rss.xml",
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",  # NYT World
+        "http://feeds.bbci.co.uk/news/world/rss.xml",              # BBC World
+        "https://www.theguardian.com/world/rss",                   # The Guardian
+        "https://feeds.npr.org/1004/rss.xml",                      # NPR World
+        "https://feeds.apnews.com/rss/topnews",                    # AP Top News
+        "https://feeds.reuters.com/reuters/topNews",               # Reuters Top News
+        "https://www.aljazeera.com/xml/rss/all.xml",               # Al Jazeera
     ),
     IssueCategory.HEALTH: (
-        "https://www.medicalnewstoday.com/rss",
-        "https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",
-        "https://rss.cnn.com/rss/cnn_health.rss",
-        "https://www.who.int/rss-feeds/news-english.xml",
+        "https://www.medicalnewstoday.com/rss",                    # Medical News Today
+        "https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",  # WebMD
+        "https://rss.cnn.com/rss/cnn_health.rss",                 # CNN Health
+        "https://www.who.int/rss-feeds/news-english.xml",          # WHO
+        "https://www.sciencedaily.com/rss/health_medicine.xml",    # ScienceDaily Health
+        "https://www.nih.gov/rss/news.xml",                        # NIH News
+        "https://www.healthline.com/rss/health-news",              # Healthline
     ),
     IssueCategory.ENTERTAINMENT_TREND: (
-        "https://www.billboard.com/feed/",
-        "https://pitchfork.com/rss/news/",
-        "https://variety.com/feed/",
-        "https://www.rollingstone.com/music/music-news/feed/",
+        "https://www.billboard.com/feed/",                         # Billboard
+        "https://pitchfork.com/rss/news/",                        # Pitchfork
+        "https://variety.com/feed/",                               # Variety
+        "https://www.rollingstone.com/music/music-news/feed/",    # Rolling Stone
+        "https://www.hollywoodreporter.com/feed/",                 # Hollywood Reporter
+        "https://deadline.com/feed/",                              # Deadline
+        "https://ew.com/feed/",                                    # Entertainment Weekly
     ),
 }
 
-_DEFAULT_REDDIT: dict[IssueCategory, tuple[str, ...]] = {
-    IssueCategory.AI_TECH: ("technology", "MachineLearning", "artificial", "singularity"),
-    IssueCategory.ECONOMY: ("economy", "stocks", "investing", "wallstreetbets"),
-    IssueCategory.SOCIETY: ("worldnews", "news", "geopolitics"),
-    IssueCategory.HEALTH: ("health", "medicine", "science"),
-    IssueCategory.ENTERTAINMENT_TREND: ("entertainment", "movies", "kpop", "television"),
-}
+_DEFAULT_REDDIT: dict[IssueCategory, tuple[str, ...]] = {}
 
 _DEFAULT_YOUTUBE: dict[IssueCategory, tuple[str, ...]] = {
     IssueCategory.AI_TECH: (
@@ -122,7 +130,7 @@ def _build_default_pools(config_path: Path) -> CategorySourcePools:
         path=str(config_path),
         rss=_DEFAULT_RSS,
         youtube=_DEFAULT_YOUTUBE,
-        reddit=_DEFAULT_REDDIT,
+        reddit={},
         twitter_x=_DEFAULT_TWITTER_X,
     )
 
