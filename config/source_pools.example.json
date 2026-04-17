@@ -1,0 +1,57 @@
+{
+  "categories": {
+    "ai_tech": {
+      "rss": [
+        "https://hnrss.org/frontpage",
+        "https://www.theverge.com/rss/index.xml"
+      ],
+      "youtube": [
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg"
+      ],
+      "reddit": [
+        "technology",
+        "MachineLearning"
+      ],
+      "twitter": [
+        "ai OR technology OR semiconductor"
+      ]
+    },
+    "economy": {
+      "rss": [
+        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"
+      ],
+      "reddit": [
+        "economy",
+        "stocks"
+      ],
+      "twitter": [
+        "economy OR inflation OR market"
+      ]
+    },
+    "society": {
+      "rss": [
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+      ]
+    },
+    "health": {
+      "rss": [
+        "https://www.medicalnewstoday.com/rss"
+      ],
+      "reddit": [
+        "health",
+        "medicine"
+      ]
+    },
+    "entertainment_trend": {
+      "rss": [
+        "https://www.billboard.com/feed/"
+      ],
+      "youtube": [
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UC-9-kyTW8ZkZNDHQJ6FgpwQ"
+      ],
+      "twitter": [
+        "entertainment OR kpop OR viral"
+      ]
+    }
+  }
+}

@@ -26,9 +26,13 @@ python -m pip install -r requirements.txt
 2. 환경파일 준비
 
 - `config/app.example.env`를 `config/app.env`로 복사
+- 필요하면 `config/source_pools.example.json`을 `config/source_pools.json`으로 복사
 - 또는 루트 `.env` 파일 생성
 
-이제 앱은 `config/app.env` 또는 `.env`를 자동으로 읽습니다.
+이제 앱은 `config/app.env` 또는 `.env`를 자동으로 읽고, 있으면 `config/source_pools.json`도 함께 읽습니다.
+
+`source_pools.json`은 카테고리별 RSS/YouTube/Reddit/Twitter(X) 소스 풀을 선택적으로 덮어쓰는 파일입니다.
+파일이 없거나 특정 카테고리/소스가 비어 있으면 기존 환경변수 기반 공용 소스를 fallback으로 사용합니다.
 
 3. 실행
 
