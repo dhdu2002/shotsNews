@@ -34,9 +34,13 @@ class TopIssueRow:
     translated_title: str
     source_name: str
     source_url: str
+    category_key: str
     severity: str
     score: str
     readiness: str
+    category_tooltip: str = ""
+    score_tooltip: str = ""
+    status_tooltip: str = ""
 
 
 @dataclass(frozen=True)

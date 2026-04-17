@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from threading import Lock, Thread
-from typing import Any
-
 from PySide6.QtCore import QObject, Signal
 
 from .models import DashboardState, LinkedStatusStep, LogEntry, SettingsField, SettingsState, SourceStatusRow, TopIssueRow
@@ -26,7 +24,19 @@ def build_mock_dashboard_state() -> DashboardState:
             SourceStatusRow("RSS", "대기", "아직 없음", 0, "DesktopApp 연결 후 실제 상태를 표시합니다."),
         ),
         top_issue_rows=(
-            TopIssueRow(1, "런타임 연결을 기다리는 중입니다.", "런타임 연결을 기다리는 중입니다.", "출처 없음", "", "미분류", "0.0", "대기"),
+            TopIssueRow(
+                1,
+                "런타임 연결을 기다리는 중입니다.",
+                "런타임 연결을 기다리는 중입니다.",
+                "출처 없음",
+                "",
+                "",
+                "미분류",
+                "0.0점",
+                "대기",
+                "분류 정보가 아직 없습니다.",
+                "숏폼 점수: 0.0점",
+            ),
         ),
         log_entries=(
             LogEntry("지금", "안내", "PySide6 화면이 준비되었고 런타임 연결을 기다리는 중입니다."),

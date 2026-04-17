@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtGui import QDesktopServices
+from typing import cast
+
+from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import (
@@ -33,6 +35,16 @@ from PySide6.QtWidgets import (
 from .models import DashboardState, SettingsState
 from .viewmodels import DashboardViewModel
 from .widgets import LinkedStatusView, MetricCard, SectionFrame
+
+
+_CATEGORY_PASTELS = {
+    "ai_tech": {"row": "#eff6ff", "accent": "#dbeafe", "text": "#1d4ed8"},
+    "economy": {"row": "#fef3c7", "accent": "#fde68a", "text": "#b45309"},
+    "society": {"row": "#f3e8ff", "accent": "#e9d5ff", "text": "#7e22ce"},
+    "health": {"row": "#ecfdf5", "accent": "#d1fae5", "text": "#047857"},
+    "entertainment_trend": {"row": "#fff1f2", "accent": "#ffe4e6", "text": "#be123c"},
+    "default": {"row": "#f8fafc", "accent": "#e5e7eb", "text": "#475569"},
+}
 
 
 class DashboardMainWindow(QMainWindow):
@@ -102,6 +114,7 @@ class DashboardMainWindow(QMainWindow):
         self.issues_table = QTableWidget(0, 6)
         self.issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "점수", "상태"])
         self._prepare_table(self.issues_table)
+        self._configure_issue_table_columns()
         issues_section.body_layout.addWidget(self.issues_table)
 
         logs_section = SectionFrame(
@@ -258,6 +271,23 @@ class DashboardMainWindow(QMainWindow):
         table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         table.setFrameShape(QFrame.Shape.NoFrame)
 
+    def _configure_issue_table_columns(self) -> None:
+        """Top 5 표에서 이슈 열이 가장 넓게 보이도록 컬럼 폭을 조정한다."""
+        header = self.issues_table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+
+        self.issues_table.setColumnWidth(0, 56)
+        self.issues_table.setColumnWidth(2, 210)
+        self.issues_table.setColumnWidth(3, 88)
+        self.issues_table.setColumnWidth(4, 76)
+        self.issues_table.setColumnWidth(5, 84)
+
     def _render_dashboard_state(self, state: DashboardState) -> None:
         """대시보드 탭을 최신 상태로 다시 그린다."""
         self.setWindowTitle(state.window_title)
@@ -278,21 +308,22 @@ class DashboardMainWindow(QMainWindow):
 
         self.issues_table.setRowCount(len(state.top_issue_rows))
         for row_index, row in enumerate(state.top_issue_rows):
-            values = [
-                str(row.rank),
-                row.translated_title,
-                row.source_name,
-                row.severity,
-                row.score,
-                row.readiness,
+            items = [
+                self._create_issue_table_item(str(row.rank), align_center=True),
+                self._create_issue_table_item(row.translated_title),
+                self._create_issue_table_item(row.source_name),
+                self._create_issue_table_item(row.severity, tooltip=row.category_tooltip, align_center=True),
+                self._create_issue_table_item(row.score, tooltip=row.score_tooltip, align_center=True, emphasize=True),
+                self._create_issue_table_item(row.readiness, tooltip=row.status_tooltip, align_center=True),
             ]
-            for column_index, value in enumerate(values):
-                item = QTableWidgetItem(value)
+            for column_index, item in enumerate(items):
                 if column_index in {1, 2} and row.source_url:
                     item.setData(Qt.ItemDataRole.UserRole, row.source_url)
                     item.setToolTip(row.source_url)
                     item.setForeground(Qt.GlobalColor.blue)
                 self.issues_table.setItem(row_index, column_index, item)
+
+            self._apply_category_palette(row_index, row.category_key)
 
         self.logs_list.clear()
         for entry in state.log_entries:
@@ -365,9 +396,49 @@ class DashboardMainWindow(QMainWindow):
         if item is None:
             return
 
-        url = item.data(Qt.ItemDataRole.UserRole)
-        if isinstance(url, str) and url:
-            QDesktopServices.openUrl(QUrl(url))
+        url_data = cast(object, item.data(Qt.ItemDataRole.UserRole))
+        if isinstance(url_data, str) and url_data:
+            _ = QDesktopServices.openUrl(QUrl(url_data))
+
+    def _create_issue_table_item(
+        self,
+        value: str,
+        *,
+        tooltip: str = "",
+        align_center: bool = False,
+        emphasize: bool = False,
+    ) -> QTableWidgetItem:
+        """Top 이슈 표 셀에 맞는 공통 아이템을 만든다."""
+        item = QTableWidgetItem(value)
+        if tooltip:
+            item.setToolTip(tooltip)
+        if align_center:
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        if emphasize:
+            font = item.font()
+            font.setBold(True)
+            item.setFont(font)
+        return item
+
+    def _apply_category_palette(self, row_index: int, category_key: str) -> None:
+        """카테고리별 파스텔 톤을 행과 분류/점수 셀에 적용한다."""
+        palette = _CATEGORY_PASTELS.get(category_key, _CATEGORY_PASTELS["default"])
+        row_color = QColor(palette["row"])
+        accent_color = QColor(palette["accent"])
+        text_color = QColor(palette["text"])
+
+        for column_index in range(self.issues_table.columnCount()):
+            item = self.issues_table.item(row_index, column_index)
+            if item is None:
+                continue
+            item.setBackground(row_color)
+
+        for column_index in (3, 4):
+            item = self.issues_table.item(row_index, column_index)
+            if item is None:
+                continue
+            item.setBackground(accent_color)
+            item.setForeground(text_color)
 
     def _apply_styles(self) -> None:
         """대시보드 전반의 가벼운 스타일을 적용한다."""
