@@ -54,31 +54,66 @@ _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
         "https://hnrss.org/frontpage",
         "https://www.theverge.com/rss/index.xml",
         "https://www.technologyreview.com/feed/",
+        "https://techcrunch.com/feed/",
+        "https://feeds.arstechnica.com/arstechnica/index/",
     ),
     IssueCategory.ECONOMY: (
         "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
         "https://feeds.reuters.com/reuters/businessNews",
+        "https://www.cnbc.com/id/20910258/device/rss/rss.html",
+        "https://feeds.marketwatch.com/marketwatch/topstories/",
+        "https://feeds.npr.org/1006/rss.xml",
     ),
     IssueCategory.SOCIETY: (
         "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
         "http://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://www.theguardian.com/world/rss",
+        "https://feeds.npr.org/1004/rss.xml",
     ),
     IssueCategory.HEALTH: (
         "https://www.medicalnewstoday.com/rss",
         "https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",
+        "https://rss.cnn.com/rss/cnn_health.rss",
+        "https://www.who.int/rss-feeds/news-english.xml",
     ),
     IssueCategory.ENTERTAINMENT_TREND: (
         "https://www.billboard.com/feed/",
         "https://pitchfork.com/rss/news/",
+        "https://variety.com/feed/",
+        "https://www.rollingstone.com/music/music-news/feed/",
     ),
 }
 
 _DEFAULT_REDDIT: dict[IssueCategory, tuple[str, ...]] = {
-    IssueCategory.AI_TECH: ("technology", "MachineLearning", "artificial"),
-    IssueCategory.ECONOMY: ("economy", "stocks", "investing"),
-    IssueCategory.SOCIETY: ("worldnews", "news"),
-    IssueCategory.HEALTH: ("health", "medicine"),
-    IssueCategory.ENTERTAINMENT_TREND: ("entertainment", "movies", "kpop"),
+    IssueCategory.AI_TECH: ("technology", "MachineLearning", "artificial", "singularity"),
+    IssueCategory.ECONOMY: ("economy", "stocks", "investing", "wallstreetbets"),
+    IssueCategory.SOCIETY: ("worldnews", "news", "geopolitics"),
+    IssueCategory.HEALTH: ("health", "medicine", "science"),
+    IssueCategory.ENTERTAINMENT_TREND: ("entertainment", "movies", "kpop", "television"),
+}
+
+_DEFAULT_YOUTUBE: dict[IssueCategory, tuple[str, ...]] = {
+    IssueCategory.AI_TECH: (
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg",  # Two Minute Papers
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCZHmQk67mSJgfCCTn7xBfew",  # Yannic Kilcher
+    ),
+    IssueCategory.ECONOMY: (
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCIALMKvObZNtJ6Rg9X6yzUg",  # Bloomberg Quicktake
+    ),
+    IssueCategory.SOCIETY: (
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UC6ZFN9Tx6xh-skXa_y0tnKA",  # PBS NewsHour
+    ),
+    IssueCategory.ENTERTAINMENT_TREND: (
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UC295-Dw0tDd6y5cuauRnxg",  # Billboard
+    ),
+}
+
+_DEFAULT_TWITTER_X: dict[IssueCategory, tuple[str, ...]] = {
+    IssueCategory.AI_TECH: ("AI OR LLM OR openai OR nvidia OR semiconductor lang:en -is:retweet",),
+    IssueCategory.ECONOMY: ("inflation OR recession OR \"interest rate\" OR fed OR gdp lang:en -is:retweet",),
+    IssueCategory.SOCIETY: ("election OR policy OR \"climate change\" lang:en -is:retweet",),
+    IssueCategory.HEALTH: ("vaccine OR medical OR \"mental health\" OR disease lang:en -is:retweet",),
+    IssueCategory.ENTERTAINMENT_TREND: ("kpop OR viral OR celebrity OR trending lang:en -is:retweet",),
 }
 
 
@@ -86,7 +121,9 @@ def _build_default_pools(config_path: Path) -> CategorySourcePools:
     return CategorySourcePools(
         path=str(config_path),
         rss=_DEFAULT_RSS,
+        youtube=_DEFAULT_YOUTUBE,
         reddit=_DEFAULT_REDDIT,
+        twitter_x=_DEFAULT_TWITTER_X,
     )
 
 
