@@ -93,7 +93,7 @@ class RankingService:
         self._top_k: int = top_k
 
     def rank(self, candidates: list[IssueCandidate]) -> list[RankedIssue]:
-        """국내/국외별 숏폼 총점 내림차순으로 정렬 후 각 TOP 5를 선정한다."""
+        """국내/국외 × 카테고리별 숏폼 총점 기준 각 Top-K를 선정한다 (5분류 × top_k = 25/지역)."""
         for candidate in candidates:
             breakdown = self._build_breakdown(candidate)
             candidate.score_breakdown = breakdown
@@ -102,29 +102,31 @@ class RankingService:
         ranked: list[RankedIssue] = []
         for region_key in ("domestic", "international"):
             region_candidates = [c for c in candidates if c.region == region_key]
-            sorted_candidates = sorted(region_candidates, key=lambda item: item.total_score, reverse=True)
+            for category in IssueCategory:
+                cat_candidates = [c for c in region_candidates if c.category == category]
+                sorted_candidates = sorted(cat_candidates, key=lambda item: item.total_score, reverse=True)
 
-            seen_titles: set[str] = set()
-            deduped: list[IssueCandidate] = []
-            for c in sorted_candidates:
-                norm = re.sub(r"\s+", " ", c.title.lower().strip())
-                if norm not in seen_titles:
-                    seen_titles.add(norm)
-                    deduped.append(c)
+                seen_titles: set[str] = set()
+                deduped: list[IssueCandidate] = []
+                for c in sorted_candidates:
+                    norm = re.sub(r"\s+", " ", c.title.lower().strip())
+                    if norm not in seen_titles:
+                        seen_titles.add(norm)
+                        deduped.append(c)
 
-            for index, candidate in enumerate(deduped[: self._top_k], start=1):
-                ranked.append(
-                    RankedIssue(
-                        rank=index,
-                        category=candidate.category,
-                        title=candidate.title,
-                        key_points=[candidate.summary],
-                        source_url=candidate.source_url,
-                        score=candidate.total_score,
-                        score_breakdown=candidate.score_breakdown,
-                        region=region_key,
+                for index, candidate in enumerate(deduped[: self._top_k], start=1):
+                    ranked.append(
+                        RankedIssue(
+                            rank=index,
+                            category=candidate.category,
+                            title=candidate.title,
+                            key_points=[candidate.summary],
+                            source_url=candidate.source_url,
+                            score=candidate.total_score,
+                            score_breakdown=candidate.score_breakdown,
+                            region=region_key,
+                        )
                     )
-                )
         return ranked
 
     def _build_breakdown(self, candidate: IssueCandidate) -> ShortFormScoreBreakdown:

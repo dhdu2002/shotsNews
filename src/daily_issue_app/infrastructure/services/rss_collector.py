@@ -95,7 +95,9 @@ class RSSCollector:
         domestic_urls = self._domestic_feed_urls.get(category, ())
         international_urls = self._international_feed_urls.get(category, self._category_feed_urls.get(category, self._feed_urls))
 
+        # 국내 카테고리 전용 피드는 이미 해당 섹션 기사만 제공하므로 키워드 필터를 생략한다.
         for region_label, feed_urls in (("domestic", domestic_urls), ("international", international_urls)):
+            skip_keyword_filter = region_label == "domestic" and bool(domestic_urls)
             region_candidates: list[IssueCandidate] = []
             for feed_url in feed_urls:
                 request = Request(feed_url, headers={"User-Agent": "daily-issue-desktop/0.1"})
@@ -131,7 +133,7 @@ class RSSCollector:
                         continue
 
                     text = unescape(f"{title} {description}").lower()
-                    if not any(keyword in text for keyword in category_keywords):
+                    if not skip_keyword_filter and not any(keyword in text for keyword in category_keywords):
                         continue
 
                     published_text = (

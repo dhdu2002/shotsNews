@@ -281,7 +281,7 @@ class SqliteIssueRepository:
                        , COALESCE(region, 'international') as region
                 FROM issues
                 WHERE run_date = ?
-                ORDER BY region ASC, rank ASC
+                ORDER BY region ASC, category ASC, rank ASC
                 LIMIT ?
                 """,
                 (run_date.isoformat(), limit),

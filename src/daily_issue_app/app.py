@@ -106,7 +106,7 @@ class DesktopApp:
         top_issues = self._normalize_top_issue_payloads(
             context.repository.list_ranked_issue_summaries(
                 latest_run_date,
-                limit=context.settings.top_k * 2,  # 국내 top_k + 국외 top_k
+                limit=context.settings.top_k * 5 * 2,  # 5분류 × top_k × 2지역
             )
         )
         source_failures = []

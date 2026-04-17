@@ -40,8 +40,8 @@ class CollectDailyIssuesUseCase:
             seen_titles.add(title_key)
             deduped.append(candidate)
 
-        # 3단계: 국내/국외 각각 25개로 제한
-        domestic = [c for c in deduped if c.region == "domestic"][:25]
-        international = [c for c in deduped if c.region != "domestic"][:25]
+        # 3단계: 국내/국외 각각 최대 100개 유지 (랭킹 서비스가 카테고리별 top_k 처리)
+        domestic = [c for c in deduped if c.region == "domestic"][:100]
+        international = [c for c in deduped if c.region != "domestic"][:100]
 
         return CollectIssuesResult(candidates=domestic + international)
