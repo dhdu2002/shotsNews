@@ -105,7 +105,16 @@ class RankingService:
 
         for category in IssueCategory:
             sorted_candidates = sorted(grouped[category], key=lambda item: item.total_score, reverse=True)
-            for index, candidate in enumerate(sorted_candidates[: self._top_k], start=1):
+            # 카테고리 내 제목 정규화 기반 중복 제거
+            seen_titles: set[str] = set()
+            deduped: list[IssueCandidate] = []
+            for c in sorted_candidates:
+                norm = re.sub(r"\s+", " ", c.title.lower().strip())
+                if norm not in seen_titles:
+                    seen_titles.add(norm)
+                    deduped.append(c)
+
+            for index, candidate in enumerate(deduped[: self._top_k], start=1):
                 ranked.append(
                     RankedIssue(
                         rank=index,

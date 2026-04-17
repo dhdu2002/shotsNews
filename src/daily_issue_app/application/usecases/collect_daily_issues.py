@@ -17,4 +17,11 @@ class CollectDailyIssuesUseCase:
         candidates = []
         for category in request.categories:
             candidates.extend(self._collector.collect(request.run_date, category))
-        return CollectIssuesResult(candidates=candidates)
+
+        # 동일 URL이 여러 카테고리에서 중복 수집된 경우 score_hint가 가장 높은 것만 유지한다.
+        seen: dict[str, object] = {}
+        for candidate in candidates:
+            key = candidate.source_url
+            if key not in seen or candidate.score_hint > seen[key].score_hint:  # type: ignore[union-attr]
+                seen[key] = candidate
+        return CollectIssuesResult(candidates=list(seen.values()))
