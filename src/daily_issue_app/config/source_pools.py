@@ -51,50 +51,80 @@ class CategorySourcePools:
 
 _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
     IssueCategory.AI_TECH: (
+        # 국외
         "https://hnrss.org/frontpage",                              # Hacker News
         "https://www.theverge.com/rss/index.xml",                   # The Verge
         "https://www.technologyreview.com/feed/",                   # MIT Technology Review
-        "https://techcrunch.com/feed/",                            # TechCrunch
-        "https://feeds.arstechnica.com/arstechnica/index/",        # Ars Technica
-        "https://venturebeat.com/category/ai/feed/",               # VentureBeat AI
-        "https://www.wired.com/feed/rss",                          # Wired
+        "https://techcrunch.com/feed/",                             # TechCrunch
+        "https://feeds.arstechnica.com/arstechnica/index/",         # Ars Technica
+        "https://venturebeat.com/category/ai/feed/",                # VentureBeat AI
+        "https://www.wired.com/feed/rss",                           # Wired
         "https://spectrum.ieee.org/rss/fulltext",                   # IEEE Spectrum
+        # 국내
+        "http://rss.etnews.co.kr/Section901.xml",                   # 전자신문
+        "http://www.khan.co.kr/rss/rssdata/it_news.xml",            # 경향신문 IT
+        "https://www.hani.co.kr/rss/science/",                     # 한겨레 과학
+        "https://rss.donga.com/science.xml",                        # 동아일보 과학
     ),
     IssueCategory.ECONOMY: (
-        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",           # Wall Street Journal
-        "https://feeds.reuters.com/reuters/businessNews",           # Reuters Business
-        "https://www.cnbc.com/id/20910258/device/rss/rss.html",    # CNBC Markets
-        "https://feeds.marketwatch.com/marketwatch/topstories/",   # MarketWatch
-        "https://feeds.npr.org/1006/rss.xml",                      # NPR Economy
-        "https://feeds.apnews.com/rss/business",                   # AP Business
-        "https://www.economist.com/finance-and-economics/rss.xml", # The Economist
+        # 국외
+        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",            # Wall Street Journal
+        "https://feeds.reuters.com/reuters/businessNews",            # Reuters Business
+        "https://www.cnbc.com/id/20910258/device/rss/rss.html",     # CNBC Markets
+        "https://feeds.marketwatch.com/marketwatch/topstories/",    # MarketWatch
+        "https://feeds.npr.org/1006/rss.xml",                       # NPR Economy
+        "https://feeds.apnews.com/rss/business",                    # AP Business
+        "https://www.economist.com/finance-and-economics/rss.xml",  # The Economist
+        # 국내
+        "https://www.hankyung.com/feed",                            # 한국경제
+        "https://www.hani.co.kr/rss/economy/",                     # 한겨레 경제
+        "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml",  # 조선일보 경제
+        "https://newsis.com/RSS/economy.xml",                       # 뉴시스 경제
+        "https://rss.donga.com/economy.xml",                        # 동아일보 경제
     ),
     IssueCategory.SOCIETY: (
-        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",  # NYT World
-        "http://feeds.bbci.co.uk/news/world/rss.xml",              # BBC World
-        "https://www.theguardian.com/world/rss",                   # The Guardian
-        "https://feeds.npr.org/1004/rss.xml",                      # NPR World
-        "https://feeds.apnews.com/rss/topnews",                    # AP Top News
-        "https://feeds.reuters.com/reuters/topNews",               # Reuters Top News
-        "https://www.aljazeera.com/xml/rss/all.xml",               # Al Jazeera
+        # 국외
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",   # NYT World
+        "http://feeds.bbci.co.uk/news/world/rss.xml",               # BBC World
+        "https://www.theguardian.com/world/rss",                    # The Guardian
+        "https://feeds.npr.org/1004/rss.xml",                       # NPR World
+        "https://feeds.apnews.com/rss/topnews",                     # AP Top News
+        "https://feeds.reuters.com/reuters/topNews",                # Reuters Top News
+        "https://www.aljazeera.com/xml/rss/all.xml",                # Al Jazeera
+        # 국내
+        "https://www.hani.co.kr/rss/society/",                     # 한겨레 사회
+        "https://www.hani.co.kr/rss/international/",               # 한겨레 국제
+        "https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml",  # 조선일보 국제
+        "https://newsis.com/RSS/society.xml",                       # 뉴시스 사회
+        "https://rss.donga.com/national.xml",                       # 동아일보 사회
     ),
     IssueCategory.HEALTH: (
-        "https://www.medicalnewstoday.com/rss",                    # Medical News Today
+        # 국외
+        "https://www.medicalnewstoday.com/rss",                     # Medical News Today
         "https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",  # WebMD
-        "https://rss.cnn.com/rss/cnn_health.rss",                 # CNN Health
-        "https://www.who.int/rss-feeds/news-english.xml",          # WHO
-        "https://www.sciencedaily.com/rss/health_medicine.xml",    # ScienceDaily Health
-        "https://www.nih.gov/rss/news.xml",                        # NIH News
-        "https://www.healthline.com/rss/health-news",              # Healthline
+        "https://rss.cnn.com/rss/cnn_health.rss",                  # CNN Health
+        "https://www.who.int/rss-feeds/news-english.xml",           # WHO
+        "https://www.sciencedaily.com/rss/health_medicine.xml",     # ScienceDaily Health
+        "https://www.nih.gov/rss/news.xml",                         # NIH News
+        "https://www.healthline.com/rss/health-news",               # Healthline
+        # 국내
+        "https://newsis.com/RSS/health.xml",                        # 뉴시스 건강
+        "https://rss.donga.com/health.xml",                         # 동아일보 건강
     ),
     IssueCategory.ENTERTAINMENT_TREND: (
-        "https://www.billboard.com/feed/",                         # Billboard
-        "https://pitchfork.com/rss/news/",                        # Pitchfork
-        "https://variety.com/feed/",                               # Variety
-        "https://www.rollingstone.com/music/music-news/feed/",    # Rolling Stone
-        "https://www.hollywoodreporter.com/feed/",                 # Hollywood Reporter
-        "https://deadline.com/feed/",                              # Deadline
-        "https://ew.com/feed/",                                    # Entertainment Weekly
+        # 국외
+        "https://www.billboard.com/feed/",                          # Billboard
+        "https://pitchfork.com/rss/news/",                         # Pitchfork
+        "https://variety.com/feed/",                                # Variety
+        "https://www.rollingstone.com/music/music-news/feed/",     # Rolling Stone
+        "https://www.hollywoodreporter.com/feed/",                  # Hollywood Reporter
+        "https://deadline.com/feed/",                               # Deadline
+        "https://ew.com/feed/",                                     # Entertainment Weekly
+        # 국내
+        "https://www.hani.co.kr/rss/culture/",                     # 한겨레 문화
+        "https://www.chosun.com/arc/outboundfeeds/rss/category/entertainments/?outputType=xml",  # 조선일보 연예
+        "https://newsis.com/RSS/entertain.xml",                     # 뉴시스 연예
+        "https://www.khan.co.kr/rss/rssdata/kh_entertainment.xml", # 경향신문 연예
     ),
 }
 
