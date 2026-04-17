@@ -49,16 +49,57 @@ class CategorySourcePools:
         return dict(mapping)
 
 
+_DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
+    IssueCategory.AI_TECH: (
+        "https://hnrss.org/frontpage",
+        "https://www.theverge.com/rss/index.xml",
+        "https://www.technologyreview.com/feed/",
+    ),
+    IssueCategory.ECONOMY: (
+        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+        "https://feeds.reuters.com/reuters/businessNews",
+    ),
+    IssueCategory.SOCIETY: (
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+        "http://feeds.bbci.co.uk/news/world/rss.xml",
+    ),
+    IssueCategory.HEALTH: (
+        "https://www.medicalnewstoday.com/rss",
+        "https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",
+    ),
+    IssueCategory.ENTERTAINMENT_TREND: (
+        "https://www.billboard.com/feed/",
+        "https://pitchfork.com/rss/news/",
+    ),
+}
+
+_DEFAULT_REDDIT: dict[IssueCategory, tuple[str, ...]] = {
+    IssueCategory.AI_TECH: ("technology", "MachineLearning", "artificial"),
+    IssueCategory.ECONOMY: ("economy", "stocks", "investing"),
+    IssueCategory.SOCIETY: ("worldnews", "news"),
+    IssueCategory.HEALTH: ("health", "medicine"),
+    IssueCategory.ENTERTAINMENT_TREND: ("entertainment", "movies", "kpop"),
+}
+
+
+def _build_default_pools(config_path: Path) -> CategorySourcePools:
+    return CategorySourcePools(
+        path=str(config_path),
+        rss=_DEFAULT_RSS,
+        reddit=_DEFAULT_REDDIT,
+    )
+
+
 def load_category_source_pools(root: Path) -> CategorySourcePools:
-    """`config/source_pools.json`이 있으면 카테고리별 소스 풀을 읽는다."""
+    """`config/source_pools.json`이 있으면 카테고리별 소스 풀을 읽고, 없으면 내장 기본값을 사용한다."""
     config_path = root / "config" / "source_pools.json"
     if not config_path.exists():
-        return CategorySourcePools(path=str(config_path))
+        return _build_default_pools(config_path)
 
     try:
         payload = json.loads(config_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return CategorySourcePools(path=str(config_path))
+        return _build_default_pools(config_path)
 
     category_payloads = _extract_category_payloads(payload)
     parsed = {

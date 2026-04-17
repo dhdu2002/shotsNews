@@ -55,20 +55,33 @@ class RSSCollector:
             return datetime.now(tz=timezone.utc)
 
     def _keywords_for_category(self, category: IssueCategory) -> tuple[str, ...]:
+        # 각 카테고리 피드에서 완전히 무관한 기사를 제거하는 1차 필터용 키워드.
+        # 범용 단어(price, market, tech 등)는 제외하고 카테고리 특성이 뚜렷한 단어만 포함한다.
         mapping: dict[IssueCategory, tuple[str, ...]] = {
-            IssueCategory.AI_TECH: ("ai", "tech", "software", "chip", "openai", "model", "반도체", "기술"),
-            IssueCategory.ECONOMY: ("economy", "market", "inflation", "jobs", "price"),
-            IssueCategory.SOCIETY: ("society", "education", "community", "culture", "사회", "정책"),
-            IssueCategory.HEALTH: ("health", "medical", "hospital", "disease", "wellness", "건강", "의료"),
+            IssueCategory.AI_TECH: (
+                "ai", "llm", "gpu", "chip", "openai", "nvidia", "robot",
+                "software", "hardware", "semiconductor", "algorithm",
+                "인공지능", "반도체", "엔비디아",
+            ),
+            IssueCategory.ECONOMY: (
+                "gdp", "inflation", "recession", "fed", "tariff", "stock",
+                "earnings", "bond", "interest rate",
+                "금리", "물가", "경기", "관세", "주가", "채권",
+            ),
+            IssueCategory.SOCIETY: (
+                "election", "policy", "government", "court", "protest",
+                "climate", "immigration", "legislation",
+                "선거", "정책", "정부", "법원", "시위", "기후",
+            ),
+            IssueCategory.HEALTH: (
+                "vaccine", "hospital", "disease", "cancer", "clinical",
+                "fda", "pandemic", "mental health",
+                "백신", "병원", "의료", "암", "임상",
+            ),
             IssueCategory.ENTERTAINMENT_TREND: (
-                "entertainment",
-                "celebrity",
-                "music",
-                "movie",
-                "trend",
-                "viral",
-                "연예",
-                "트렌드",
+                "kpop", "idol", "celebrity", "movie", "album", "concert",
+                "viral", "streaming", "netflix",
+                "연예", "아이돌", "영화", "드라마",
             ),
         }
         return mapping[category]
