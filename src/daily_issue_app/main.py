@@ -10,7 +10,10 @@ from .app import DesktopApp
 
 def _load_launch_dashboard() -> Callable[..., int]:
     """실행 환경에 맞는 대시보드 진입 함수를 불러온다."""
-    module = import_module("src.ui.app")
+    try:
+        module = import_module("ui.app")
+    except ModuleNotFoundError:
+        module = import_module("src.ui.app")
     return getattr(module, "launch_dashboard")
 
 
