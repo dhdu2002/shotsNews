@@ -7,6 +7,8 @@ from os import environ
 from os import getenv
 from pathlib import Path
 
+from .source_pools import CategorySourcePools, load_category_source_pools
+
 
 _ENV_FILE_ORDER = (
     "APP_NAME",
@@ -50,6 +52,7 @@ class AppSettings:
     reddit_user_agent: str
     twitter_bearer_token: str
     twitter_query: str
+    source_pools: CategorySourcePools
 
 
 def _split_csv(value: str) -> tuple[str, ...]:
@@ -112,13 +115,15 @@ def save_settings_file(updates: dict[str, str]) -> str:
         current_values[key] = normalized
 
     lines = [f"{key}={current_values[key]}" for key in _ENV_FILE_ORDER if current_values[key] != ""]
-    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _ = env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return str(env_path)
 
 
 def load_settings() -> AppSettings:
     """환경변수에서 기본값과 함께 앱 설정을 로드한다."""
     _load_env_file()
+    root = Path(__file__).resolve().parents[3]
+    source_pools = load_category_source_pools(root)
     return AppSettings(
         app_name=getenv("APP_NAME", "DailyIssueDesktop"),
         timezone=getenv("APP_TIMEZONE", "Asia/Seoul"),
@@ -142,4 +147,5 @@ def load_settings() -> AppSettings:
         reddit_user_agent=getenv("APP_REDDIT_USER_AGENT", "daily-issue-desktop/0.1"),
         twitter_bearer_token=getenv("TWITTER_BEARER_TOKEN", ""),
         twitter_query=getenv("TWITTER_QUERY", "ai OR technology"),
+        source_pools=source_pools,
     )

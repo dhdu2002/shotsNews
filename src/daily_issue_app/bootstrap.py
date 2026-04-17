@@ -55,22 +55,26 @@ def build_application_context() -> ApplicationContext:
         {
             "rss": RSSCollector(
                 feed_urls=settings.rss_urls,
+                category_feed_urls=settings.source_pools.rss,
                 default_limit=settings.max_candidates_per_category,
                 timeout_seconds=settings.request_timeout_seconds,
             ),
             "youtube": YouTubeCollector(
                 feed_urls=settings.youtube_feed_urls,
+                category_feed_urls=settings.source_pools.youtube,
                 default_limit=settings.max_candidates_per_category,
                 timeout_seconds=settings.request_timeout_seconds,
             ),
             "reddit": RedditCollector(
                 subreddits=settings.reddit_subreddits,
+                category_subreddits=settings.source_pools.reddit,
                 user_agent=settings.reddit_user_agent,
                 timeout_seconds=settings.request_timeout_seconds,
             ),
             "twitter_x": TwitterXCollector(
                 bearer_token=settings.twitter_bearer_token,
                 query=settings.twitter_query,
+                category_queries=settings.source_pools.twitter_x,
                 timeout_seconds=settings.request_timeout_seconds,
             ),
         }
@@ -103,8 +107,8 @@ def build_application_context() -> ApplicationContext:
     pipeline = DailyIssuePipeline(context)
     context.pipeline = pipeline
     def _scheduled_run() -> None:
-        pipeline.run_for_date(date.today())
+        _ = pipeline.run_for_date(date.today())
 
-    scheduler.register_interval_job(_scheduled_run, settings.scheduler_interval_minutes)
+    _ = scheduler.register_interval_job(_scheduled_run, settings.scheduler_interval_minutes)
 
     return context
