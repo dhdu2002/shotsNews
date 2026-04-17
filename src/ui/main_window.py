@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QDialog,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -32,7 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .models import DashboardState, SettingsState
+from .models import DashboardState, SettingsState, TopIssueRow
 from .viewmodels import DashboardViewModel
 from .widgets import LinkedStatusView, MetricCard, SectionFrame
 
@@ -45,6 +46,76 @@ _CATEGORY_PASTELS = {
     "entertainment_trend": {"row": "#fff1f2", "accent": "#ffe4e6", "text": "#be123c"},
     "default": {"row": "#f8fafc", "accent": "#e5e7eb", "text": "#475569"},
 }
+
+
+class IssueDetailDialog(QDialog):
+    """이슈 행 클릭 시 표시되는 상세 정보 다이얼로그."""
+
+    def __init__(self, row: TopIssueRow, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("이슈 상세 정보")
+        self.setMinimumWidth(520)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.setModal(True)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+        layout.setContentsMargins(24, 24, 24, 20)
+
+        meta = QLabel(f"#{row.rank}  ·  {row.severity}  ·  {row.score}  ·  상태: {row.readiness}")
+        meta.setStyleSheet("color: #52606d; font-size: 12px;")
+        layout.addWidget(meta)
+
+        display_title = row.translated_title if row.translated_title else row.title
+        title_lbl = QLabel(display_title)
+        title_lbl.setWordWrap(True)
+        title_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #14213d; padding-bottom: 2px;")
+        layout.addWidget(title_lbl)
+
+        if row.translated_title and row.translated_title != row.title:
+            orig_lbl = QLabel(row.title)
+            orig_lbl.setWordWrap(True)
+            orig_lbl.setStyleSheet("font-size: 12px; color: #627d98;")
+            layout.addWidget(orig_lbl)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("background: #e5e7eb; border: none; max-height: 1px; margin: 4px 0;")
+        layout.addWidget(sep)
+
+        if row.score_tooltip:
+            score_lbl = QLabel(row.score_tooltip)
+            score_lbl.setWordWrap(True)
+            score_lbl.setStyleSheet("font-size: 13px; color: #334e68; line-height: 160%;")
+            layout.addWidget(score_lbl)
+
+        if row.category_tooltip:
+            cat_lbl = QLabel(row.category_tooltip)
+            cat_lbl.setWordWrap(True)
+            cat_lbl.setStyleSheet("font-size: 13px; color: #334e68; margin-top: 4px;")
+            layout.addWidget(cat_lbl)
+
+        layout.addStretch(1)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        if row.source_url:
+            open_btn = QPushButton(f"원문 열기  ({row.source_name})")
+            open_btn.setStyleSheet(
+                "background:#1d4ed8;color:white;border:none;"
+                "border-radius:8px;padding:8px 16px;font-weight:600;"
+            )
+            open_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(row.source_url)))
+            btn_row.addWidget(open_btn)
+        btn_row.addStretch(1)
+        close_btn = QPushButton("닫기")
+        close_btn.setStyleSheet(
+            "background:white;color:#1f2933;border:1px solid #cbd2d9;"
+            "border-radius:8px;padding:8px 16px;"
+        )
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
 
 
 class DashboardMainWindow(QMainWindow):
@@ -287,6 +358,7 @@ class DashboardMainWindow(QMainWindow):
         self.issues_table.setColumnWidth(3, 88)
         self.issues_table.setColumnWidth(4, 76)
         self.issues_table.setColumnWidth(5, 84)
+        self.issues_table.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def _render_dashboard_state(self, state: DashboardState) -> None:
         """대시보드 탭을 최신 상태로 다시 그린다."""
@@ -316,6 +388,8 @@ class DashboardMainWindow(QMainWindow):
                 self._create_issue_table_item(row.score, tooltip=row.score_tooltip, align_center=True, emphasize=True),
                 self._create_issue_table_item(row.readiness, tooltip=row.status_tooltip, align_center=True),
             ]
+            # 팝업용 전체 row 데이터를 rank 셀에 보관
+            items[0].setData(Qt.ItemDataRole.UserRole + 1, row)
             for column_index, item in enumerate(items):
                 if column_index in {1, 2} and row.source_url:
                     item.setData(Qt.ItemDataRole.UserRole, row.source_url)
@@ -363,11 +437,13 @@ class DashboardMainWindow(QMainWindow):
         self.tab_widget.setCurrentWidget(self.settings_scroll)
 
     def _set_busy_state(self, busy: bool) -> None:
-        """백그라운드 작업 중 버튼 상태를 조정한다."""
+        """백그라운드 작업 중 버튼 상태를 조정하고, 실행 시작 시 상태 탭으로 전환한다."""
         self.run_button.setEnabled(not busy)
         self.refresh_button.setEnabled(not busy)
         self.settings_button.setEnabled(True)
         self.save_settings_button.setEnabled(not busy)
+        if busy:
+            self.tab_widget.setCurrentWidget(self.status_scroll)
 
     def _render_progress(self, value: int, message: str, indeterminate: bool) -> None:
         """대시보드 상단의 진행률 표시를 갱신한다."""
@@ -387,18 +463,16 @@ class DashboardMainWindow(QMainWindow):
         """설정 저장 완료 후 안내 문구를 갱신한다."""
         self.progress_label.setText(f"설정 저장 완료: {saved_path}")
 
-    def _open_issue_link(self, row: int, column: int) -> None:
-        """이슈/출처 클릭 시 원문 링크를 연다."""
-        if column not in {1, 2}:
+    def _open_issue_link(self, row_index: int, column: int) -> None:
+        """이슈 행 클릭 시 상세 팝업을 표시한다."""
+        rank_item = self.issues_table.item(row_index, 0)
+        if rank_item is None:
             return
-
-        item = self.issues_table.item(row, column)
-        if item is None:
+        row_data = cast(object, rank_item.data(Qt.ItemDataRole.UserRole + 1))
+        if not isinstance(row_data, TopIssueRow):
             return
-
-        url_data = cast(object, item.data(Qt.ItemDataRole.UserRole))
-        if isinstance(url_data, str) and url_data:
-            _ = QDesktopServices.openUrl(QUrl(url_data))
+        dialog = IssueDetailDialog(row_data, self)
+        _ = dialog.exec()
 
     def _create_issue_table_item(
         self,

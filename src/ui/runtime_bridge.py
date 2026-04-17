@@ -164,12 +164,6 @@ class DashboardPresenter:
                     "쉼표(,)로 구분된 YouTube 채널 피드 주소 목록입니다.",
                 ),
                 SettingsField(
-                    "APP_REDDIT_SUBREDDITS",
-                    "Reddit 서브레딧",
-                    str(runtime_status.get("reddit_subreddits") or ""),
-                    "쉼표(,)로 구분된 subreddit 이름 목록입니다.",
-                ),
-                SettingsField(
                     "TWITTER_QUERY",
                     "X 검색어",
                     str(runtime_status.get("twitter_query") or ""),
