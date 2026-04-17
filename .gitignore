@@ -16,6 +16,7 @@ data/
 
 .env
 config/app.env
+config/source_pools.json
 
 .pytest_cache/
 .mypy_cache/
