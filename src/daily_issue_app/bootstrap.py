@@ -55,6 +55,8 @@ def build_application_context() -> ApplicationContext:
             "rss": RSSCollector(
                 feed_urls=settings.rss_urls,
                 category_feed_urls=settings.source_pools.rss,
+                domestic_feed_urls=settings.source_pools.rss_domestic,
+                international_feed_urls=settings.source_pools.rss_international,
                 default_limit=settings.max_candidates_per_category,
                 timeout_seconds=settings.request_timeout_seconds,
             ),

@@ -180,12 +180,24 @@ class DashboardMainWindow(QMainWindow):
 
         issues_section = SectionFrame(
             "오늘의 Top 5",
-            "각 분류별 1위부터 5위까지의 이슈와 숏폼 점수를 우선해서 확인합니다.",
+            "국내·국외 각각 1위~5위 이슈와 숏폼 점수를 확인합니다.",
         )
+        domestic_label = QLabel("🇰🇷 국내 TOP 5")
+        domestic_label.setStyleSheet("font-weight: 700; font-size: 13px; color: #1d4ed8; padding: 4px 0 2px 0;")
+        issues_section.body_layout.addWidget(domestic_label)
+        self.domestic_issues_table = QTableWidget(0, 6)
+        self.domestic_issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "점수", "상태"])
+        self._prepare_table(self.domestic_issues_table)
+        self._configure_issue_table_columns(self.domestic_issues_table)
+        issues_section.body_layout.addWidget(self.domestic_issues_table)
+
+        intl_label = QLabel("🌐 국외 TOP 5")
+        intl_label.setStyleSheet("font-weight: 700; font-size: 13px; color: #047857; padding: 8px 0 2px 0;")
+        issues_section.body_layout.addWidget(intl_label)
         self.issues_table = QTableWidget(0, 6)
         self.issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "점수", "상태"])
         self._prepare_table(self.issues_table)
-        self._configure_issue_table_columns()
+        self._configure_issue_table_columns(self.issues_table)
         issues_section.body_layout.addWidget(self.issues_table)
 
         logs_section = SectionFrame(
@@ -327,6 +339,7 @@ class DashboardMainWindow(QMainWindow):
         _ = self.viewmodel.settings_saved.connect(self._on_settings_saved)
         _ = self.save_settings_button.clicked.connect(self._save_settings)
         _ = self.issues_table.cellClicked.connect(self._open_issue_link)
+        _ = self.domestic_issues_table.cellClicked.connect(self._open_domestic_issue_link)
 
         self._settings_inputs: dict[str, QLineEdit] = {}
 
@@ -342,9 +355,9 @@ class DashboardMainWindow(QMainWindow):
         table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         table.setFrameShape(QFrame.Shape.NoFrame)
 
-    def _configure_issue_table_columns(self) -> None:
+    def _configure_issue_table_columns(self, table: QTableWidget) -> None:
         """Top 5 표에서 이슈 열이 가장 넓게 보이도록 컬럼 폭을 조정한다."""
-        header = self.issues_table.horizontalHeader()
+        header = table.horizontalHeader()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -353,12 +366,12 @@ class DashboardMainWindow(QMainWindow):
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
 
-        self.issues_table.setColumnWidth(0, 56)
-        self.issues_table.setColumnWidth(2, 210)
-        self.issues_table.setColumnWidth(3, 88)
-        self.issues_table.setColumnWidth(4, 76)
-        self.issues_table.setColumnWidth(5, 84)
-        self.issues_table.setCursor(Qt.CursorShape.PointingHandCursor)
+        table.setColumnWidth(0, 56)
+        table.setColumnWidth(2, 210)
+        table.setColumnWidth(3, 88)
+        table.setColumnWidth(4, 76)
+        table.setColumnWidth(5, 84)
+        table.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def _render_dashboard_state(self, state: DashboardState) -> None:
         """대시보드 탭을 최신 상태로 다시 그린다."""
@@ -378,26 +391,8 @@ class DashboardMainWindow(QMainWindow):
             for column_index, value in enumerate(values):
                 self.source_table.setItem(row_index, column_index, QTableWidgetItem(value))
 
-        self.issues_table.setRowCount(len(state.top_issue_rows))
-        for row_index, row in enumerate(state.top_issue_rows):
-            items = [
-                self._create_issue_table_item(str(row.rank), align_center=True),
-                self._create_issue_table_item(row.translated_title),
-                self._create_issue_table_item(row.source_name),
-                self._create_issue_table_item(row.severity, tooltip=row.category_tooltip, align_center=True),
-                self._create_issue_table_item(row.score, tooltip=row.score_tooltip, align_center=True, emphasize=True),
-                self._create_issue_table_item(row.readiness, tooltip=row.status_tooltip, align_center=True),
-            ]
-            # 팝업용 전체 row 데이터를 rank 셀에 보관
-            items[0].setData(Qt.ItemDataRole.UserRole + 1, row)
-            for column_index, item in enumerate(items):
-                if column_index in {1, 2} and row.source_url:
-                    item.setData(Qt.ItemDataRole.UserRole, row.source_url)
-                    item.setToolTip(row.source_url)
-                    item.setForeground(Qt.GlobalColor.blue)
-                self.issues_table.setItem(row_index, column_index, item)
-
-            self._apply_category_palette(row_index, row.category_key)
+        self._fill_issue_table(self.domestic_issues_table, state.domestic_top_issue_rows)
+        self._fill_issue_table(self.issues_table, state.top_issue_rows)
 
         self.logs_list.clear()
         for entry in state.log_entries:
@@ -463,9 +458,37 @@ class DashboardMainWindow(QMainWindow):
         """설정 저장 완료 후 안내 문구를 갱신한다."""
         self.progress_label.setText(f"설정 저장 완료: {saved_path}")
 
+    def _fill_issue_table(self, table: QTableWidget, rows: tuple[TopIssueRow, ...]) -> None:
+        """이슈 테이블을 주어진 rows로 채운다."""
+        table.setRowCount(len(rows))
+        for row_index, row in enumerate(rows):
+            items = [
+                self._create_issue_table_item(str(row.rank), align_center=True),
+                self._create_issue_table_item(row.translated_title),
+                self._create_issue_table_item(row.source_name),
+                self._create_issue_table_item(row.severity, tooltip=row.category_tooltip, align_center=True),
+                self._create_issue_table_item(row.score, tooltip=row.score_tooltip, align_center=True, emphasize=True),
+                self._create_issue_table_item(row.readiness, tooltip=row.status_tooltip, align_center=True),
+            ]
+            items[0].setData(Qt.ItemDataRole.UserRole + 1, row)
+            for column_index, item in enumerate(items):
+                if column_index in {1, 2} and row.source_url:
+                    item.setData(Qt.ItemDataRole.UserRole, row.source_url)
+                    item.setToolTip(row.source_url)
+                    item.setForeground(Qt.GlobalColor.blue)
+                table.setItem(row_index, column_index, item)
+            self._apply_category_palette_for_table(table, row_index, row.category_key)
+
     def _open_issue_link(self, row_index: int, column: int) -> None:
-        """이슈 행 클릭 시 상세 팝업을 표시한다."""
-        rank_item = self.issues_table.item(row_index, 0)
+        """국외 이슈 행 클릭 시 상세 팝업을 표시한다."""
+        self._show_issue_dialog(self.issues_table, row_index)
+
+    def _open_domestic_issue_link(self, row_index: int, column: int) -> None:
+        """국내 이슈 행 클릭 시 상세 팝업을 표시한다."""
+        self._show_issue_dialog(self.domestic_issues_table, row_index)
+
+    def _show_issue_dialog(self, table: QTableWidget, row_index: int) -> None:
+        rank_item = table.item(row_index, 0)
         if rank_item is None:
             return
         row_data = cast(object, rank_item.data(Qt.ItemDataRole.UserRole + 1))
@@ -494,21 +517,21 @@ class DashboardMainWindow(QMainWindow):
             item.setFont(font)
         return item
 
-    def _apply_category_palette(self, row_index: int, category_key: str) -> None:
+    def _apply_category_palette_for_table(self, table: QTableWidget, row_index: int, category_key: str) -> None:
         """카테고리별 파스텔 톤을 행과 분류/점수 셀에 적용한다."""
         palette = _CATEGORY_PASTELS.get(category_key, _CATEGORY_PASTELS["default"])
         row_color = QColor(palette["row"])
         accent_color = QColor(palette["accent"])
         text_color = QColor(palette["text"])
 
-        for column_index in range(self.issues_table.columnCount()):
-            item = self.issues_table.item(row_index, column_index)
+        for column_index in range(table.columnCount()):
+            item = table.item(row_index, column_index)
             if item is None:
                 continue
             item.setBackground(row_color)
 
         for column_index in (3, 4):
-            item = self.issues_table.item(row_index, column_index)
+            item = table.item(row_index, column_index)
             if item is None:
                 continue
             item.setBackground(accent_color)

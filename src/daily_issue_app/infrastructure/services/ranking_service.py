@@ -93,19 +93,17 @@ class RankingService:
         self._top_k: int = top_k
 
     def rank(self, candidates: list[IssueCandidate]) -> list[RankedIssue]:
-        """카테고리별 숏폼 총점 내림차순으로 정렬 후 랭킹 모델로 변환한다."""
-        grouped: dict[IssueCategory, list[IssueCandidate]] = {category: [] for category in IssueCategory}
+        """국내/국외별 숏폼 총점 내림차순으로 정렬 후 각 TOP 5를 선정한다."""
         for candidate in candidates:
             breakdown = self._build_breakdown(candidate)
             candidate.score_breakdown = breakdown
             candidate.short_form_score = breakdown.total
-            grouped[candidate.category].append(candidate)
 
         ranked: list[RankedIssue] = []
+        for region_key in ("domestic", "international"):
+            region_candidates = [c for c in candidates if c.region == region_key]
+            sorted_candidates = sorted(region_candidates, key=lambda item: item.total_score, reverse=True)
 
-        for category in IssueCategory:
-            sorted_candidates = sorted(grouped[category], key=lambda item: item.total_score, reverse=True)
-            # 카테고리 내 제목 정규화 기반 중복 제거
             seen_titles: set[str] = set()
             deduped: list[IssueCandidate] = []
             for c in sorted_candidates:
@@ -124,6 +122,7 @@ class RankingService:
                         source_url=candidate.source_url,
                         score=candidate.total_score,
                         score_breakdown=candidate.score_breakdown,
+                        region=region_key,
                     )
                 )
         return ranked

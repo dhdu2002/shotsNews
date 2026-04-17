@@ -31,8 +31,8 @@ class SqliteIssueRepository:
                     """
                     INSERT INTO issues(
                         issue_id, run_date, rank, category, title,
-                        score, score_breakdown_json, key_points_json, source_url, sync_status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        score, score_breakdown_json, key_points_json, source_url, sync_status, region
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         issue_id,
@@ -45,6 +45,7 @@ class SqliteIssueRepository:
                         json.dumps(item.key_points, ensure_ascii=False),
                         item.source_url,
                         RecordSyncStatus.PENDING.value,
+                        item.region,
                     ),
                 )
                 _ = conn.execute(
@@ -66,6 +67,7 @@ class SqliteIssueRepository:
                         score=item.score,
                         score_breakdown=item.score_breakdown,
                         sync_status=RecordSyncStatus.PENDING,
+                        region=item.region,
                     )
                 )
             conn.commit()
@@ -276,9 +278,10 @@ class SqliteIssueRepository:
                 """
                 SELECT rank, title, category, source_url, sync_status
                        , score, score_breakdown_json
+                       , COALESCE(region, 'international') as region
                 FROM issues
                 WHERE run_date = ?
-                ORDER BY category ASC, rank ASC
+                ORDER BY region ASC, rank ASC
                 LIMIT ?
                 """,
                 (run_date.isoformat(), limit),
@@ -294,6 +297,7 @@ class SqliteIssueRepository:
                 "sync_status": str(row["sync_status"]),
                 "score": float(row["score"] or 0.0),
                 "score_breakdown": self._deserialize_score_breakdown(row["score_breakdown_json"]).to_dict(),
+                "region": str(row["region"]),
             }
             for row in rows
         ]

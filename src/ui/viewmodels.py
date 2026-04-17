@@ -36,6 +36,23 @@ def build_mock_dashboard_state() -> DashboardState:
                 "대기",
                 "분류 정보가 아직 없습니다.",
                 "숏폼 점수: 0.0점",
+                region="international",
+            ),
+        ),
+        domestic_top_issue_rows=(
+            TopIssueRow(
+                1,
+                "런타임 연결을 기다리는 중입니다.",
+                "런타임 연결을 기다리는 중입니다.",
+                "출처 없음",
+                "",
+                "",
+                "미분류",
+                "0.0점",
+                "대기",
+                "분류 정보가 아직 없습니다.",
+                "숏폼 점수: 0.0점",
+                region="domestic",
             ),
         ),
         log_entries=(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .enums import IssueCategory, RecordSyncStatus, ScriptTone, SourceType
+from .enums import IssueCategory, NewsRegion, RecordSyncStatus, ScriptTone, SourceType
 
 
 @dataclass(slots=True, frozen=True)
@@ -84,6 +84,7 @@ class IssueCandidate:
     score_hint: float = 0.0
     short_form_score: float | None = None
     score_breakdown: ShortFormScoreBreakdown | None = None
+    region: str = NewsRegion.INTERNATIONAL.value
 
     @property
     def total_score(self) -> float:
@@ -106,6 +107,7 @@ class RankedIssue:
     source_url: str
     score: float
     score_breakdown: ShortFormScoreBreakdown | None = None
+    region: str = NewsRegion.INTERNATIONAL.value
 
 
 @dataclass(slots=True)
@@ -130,3 +132,4 @@ class PersistedIssue:
     score: float = 0.0
     score_breakdown: ShortFormScoreBreakdown | None = None
     sync_status: RecordSyncStatus = RecordSyncStatus.PENDING
+    region: str = NewsRegion.INTERNATIONAL.value

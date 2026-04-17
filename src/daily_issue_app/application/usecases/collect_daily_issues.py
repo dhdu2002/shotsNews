@@ -27,7 +27,6 @@ class CollectDailyIssuesUseCase:
             candidate.category = classify(candidate.title, candidate.summary, candidate.category)
 
         # 2단계: score_hint 내림차순 정렬 후 URL·제목 기반 전역 중복 제거
-        # 같은 기사가 URL이 다르더라도 제목이 동일하면 한 건만 남긴다.
         all_candidates.sort(key=lambda c: c.score_hint, reverse=True)
         seen_urls: set[str] = set()
         seen_titles: set[str] = set()
@@ -41,4 +40,8 @@ class CollectDailyIssuesUseCase:
             seen_titles.add(title_key)
             deduped.append(candidate)
 
-        return CollectIssuesResult(candidates=deduped)
+        # 3단계: 국내/국외 각각 25개로 제한
+        domestic = [c for c in deduped if c.region == "domestic"][:25]
+        international = [c for c in deduped if c.region != "domestic"][:25]
+
+        return CollectIssuesResult(candidates=domestic + international)

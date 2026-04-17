@@ -41,6 +41,7 @@ class TopIssueRow:
     category_tooltip: str = ""
     score_tooltip: str = ""
     status_tooltip: str = ""
+    region: str = "international"
 
 
 @dataclass(frozen=True)
@@ -92,4 +93,5 @@ class DashboardState:
     linked_steps: tuple[LinkedStatusStep, ...] = field(default_factory=tuple)
     source_rows: tuple[SourceStatusRow, ...] = field(default_factory=tuple)
     top_issue_rows: tuple[TopIssueRow, ...] = field(default_factory=tuple)
+    domestic_top_issue_rows: tuple[TopIssueRow, ...] = field(default_factory=tuple)
     log_entries: tuple[LogEntry, ...] = field(default_factory=tuple)

@@ -107,14 +107,16 @@ class DashboardPresenter:
         overall_status, overall_detail = self._present_overall_status(latest_run, source_failures)
         linked_steps = self._build_linked_steps(runtime_status)
         source_rows = self._build_source_rows(sources, source_failures, latest_run)
-        top_issue_rows = self._build_top_issue_rows(top_issues)
+        all_top_rows = self._build_top_issue_rows(top_issues)
+        domestic_rows = tuple(r for r in all_top_rows if r.region == "domestic")
+        international_rows = tuple(r for r in all_top_rows if r.region != "domestic")
         runtime_logs = self._build_runtime_logs(runtime_status)
         logs = tuple([*interaction_logs, *runtime_logs][:8])
 
         return DashboardState(
             window_title="데일리 이슈 데스크톱",
             dashboard_title="운영 대시보드",
-            dashboard_subtitle="오늘의 수집 상태와 Top 5, Notion 대기 현황을 간단하게 확인합니다.",
+            dashboard_subtitle="오늘의 국내·국외 Top 5, 수집 상태와 Notion 대기 현황을 한 화면에서 확인합니다.",
             overall_status=overall_status,
             overall_detail=overall_detail,
             next_run_label=self._build_next_run_label(runtime_status),
@@ -123,7 +125,8 @@ class DashboardPresenter:
             notion_sync_detail=self._build_notion_detail(runtime_status),
             linked_steps=linked_steps,
             source_rows=source_rows,
-            top_issue_rows=top_issue_rows,
+            top_issue_rows=international_rows,
+            domestic_top_issue_rows=domestic_rows,
             log_entries=logs,
         )
 
@@ -386,6 +389,7 @@ class DashboardPresenter:
                     category_tooltip=self._build_category_tooltip(issue, category),
                     score_tooltip=score_tooltip,
                     status_tooltip=self._build_status_tooltip(issue),
+                    region=str(issue.get("region") or "international"),
                 )
             )
         return tuple(rows)

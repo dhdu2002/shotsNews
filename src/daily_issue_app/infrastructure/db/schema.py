@@ -89,6 +89,8 @@ def bootstrap_sqlite_schema(db_path: str | Path) -> None:
             _ = conn.execute("ALTER TABLE issues ADD COLUMN score REAL NOT NULL DEFAULT 0")
         if "score_breakdown_json" not in columns:
             _ = conn.execute("ALTER TABLE issues ADD COLUMN score_breakdown_json TEXT NOT NULL DEFAULT '{}' ")
+        if "region" not in columns:
+            _ = conn.execute("ALTER TABLE issues ADD COLUMN region TEXT NOT NULL DEFAULT 'international'")
         _ = conn.execute(
             "UPDATE issues SET score_breakdown_json = '{}' WHERE score_breakdown_json IS NULL OR TRIM(score_breakdown_json) = ''"
         )

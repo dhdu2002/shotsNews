@@ -54,6 +54,17 @@ class ScriptTone(str, Enum):
         return labels[self]
 
 
+class NewsRegion(str, Enum):
+    """기사 수집 지역 구분."""
+
+    DOMESTIC = "domestic"
+    INTERNATIONAL = "international"
+
+    @property
+    def label(self) -> str:
+        return {"domestic": "국내", "international": "국외"}[self.value]
+
+
 class RecordSyncStatus(str, Enum):
     """Notion 동기화 상태."""
 

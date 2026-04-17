@@ -27,6 +27,8 @@ class CategorySourcePools:
 
     path: str
     rss: dict[IssueCategory, tuple[str, ...]] = field(default_factory=dict)
+    rss_domestic: dict[IssueCategory, tuple[str, ...]] = field(default_factory=dict)
+    rss_international: dict[IssueCategory, tuple[str, ...]] = field(default_factory=dict)
     youtube: dict[IssueCategory, tuple[str, ...]] = field(default_factory=dict)
     reddit: dict[IssueCategory, tuple[str, ...]] = field(default_factory=dict)
     twitter_x: dict[IssueCategory, tuple[str, ...]] = field(default_factory=dict)
@@ -34,7 +36,7 @@ class CategorySourcePools:
     @property
     def enabled(self) -> bool:
         """하나 이상의 카테고리 전용 풀이 설정되었는지 반환한다."""
-        return any((self.rss, self.youtube, self.reddit, self.twitter_x))
+        return any((self.rss, self.rss_domestic, self.rss_international, self.youtube, self.reddit, self.twitter_x))
 
     def for_source(self, source_name: str, category: IssueCategory) -> tuple[str, ...]:
         """특정 소스/카테고리에 대응하는 전용 풀을 반환한다."""
@@ -49,9 +51,8 @@ class CategorySourcePools:
         return dict(mapping)
 
 
-_DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
+_DEFAULT_RSS_INTERNATIONAL: dict[IssueCategory, tuple[str, ...]] = {
     IssueCategory.AI_TECH: (
-        # 국외
         "https://hnrss.org/frontpage",                              # Hacker News
         "https://www.theverge.com/rss/index.xml",                   # The Verge
         "https://www.technologyreview.com/feed/",                   # MIT Technology Review
@@ -60,14 +61,8 @@ _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
         "https://venturebeat.com/category/ai/feed/",                # VentureBeat AI
         "https://www.wired.com/feed/rss",                           # Wired
         "https://spectrum.ieee.org/rss/fulltext",                   # IEEE Spectrum
-        # 국내
-        "http://rss.etnews.co.kr/Section901.xml",                   # 전자신문
-        "http://www.khan.co.kr/rss/rssdata/it_news.xml",            # 경향신문 IT
-        "https://www.hani.co.kr/rss/science/",                     # 한겨레 과학
-        "https://rss.donga.com/science.xml",                        # 동아일보 과학
     ),
     IssueCategory.ECONOMY: (
-        # 국외
         "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",            # Wall Street Journal
         "https://feeds.reuters.com/reuters/businessNews",            # Reuters Business
         "https://www.cnbc.com/id/20910258/device/rss/rss.html",     # CNBC Markets
@@ -75,15 +70,8 @@ _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
         "https://feeds.npr.org/1006/rss.xml",                       # NPR Economy
         "https://feeds.apnews.com/rss/business",                    # AP Business
         "https://www.economist.com/finance-and-economics/rss.xml",  # The Economist
-        # 국내
-        "https://www.hankyung.com/feed",                            # 한국경제
-        "https://www.hani.co.kr/rss/economy/",                     # 한겨레 경제
-        "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml",  # 조선일보 경제
-        "https://newsis.com/RSS/economy.xml",                       # 뉴시스 경제
-        "https://rss.donga.com/economy.xml",                        # 동아일보 경제
     ),
     IssueCategory.SOCIETY: (
-        # 국외
         "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",   # NYT World
         "http://feeds.bbci.co.uk/news/world/rss.xml",               # BBC World
         "https://www.theguardian.com/world/rss",                    # The Guardian
@@ -91,15 +79,8 @@ _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
         "https://feeds.apnews.com/rss/topnews",                     # AP Top News
         "https://feeds.reuters.com/reuters/topNews",                # Reuters Top News
         "https://www.aljazeera.com/xml/rss/all.xml",                # Al Jazeera
-        # 국내
-        "https://www.hani.co.kr/rss/society/",                     # 한겨레 사회
-        "https://www.hani.co.kr/rss/international/",               # 한겨레 국제
-        "https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml",  # 조선일보 국제
-        "https://newsis.com/RSS/society.xml",                       # 뉴시스 사회
-        "https://rss.donga.com/national.xml",                       # 동아일보 사회
     ),
     IssueCategory.HEALTH: (
-        # 국외
         "https://www.medicalnewstoday.com/rss",                     # Medical News Today
         "https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",  # WebMD
         "https://rss.cnn.com/rss/cnn_health.rss",                  # CNN Health
@@ -107,12 +88,8 @@ _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
         "https://www.sciencedaily.com/rss/health_medicine.xml",     # ScienceDaily Health
         "https://www.nih.gov/rss/news.xml",                         # NIH News
         "https://www.healthline.com/rss/health-news",               # Healthline
-        # 국내
-        "https://newsis.com/RSS/health.xml",                        # 뉴시스 건강
-        "https://rss.donga.com/health.xml",                         # 동아일보 건강
     ),
     IssueCategory.ENTERTAINMENT_TREND: (
-        # 국외
         "https://www.billboard.com/feed/",                          # Billboard
         "https://pitchfork.com/rss/news/",                         # Pitchfork
         "https://variety.com/feed/",                                # Variety
@@ -120,7 +97,35 @@ _DEFAULT_RSS: dict[IssueCategory, tuple[str, ...]] = {
         "https://www.hollywoodreporter.com/feed/",                  # Hollywood Reporter
         "https://deadline.com/feed/",                               # Deadline
         "https://ew.com/feed/",                                     # Entertainment Weekly
-        # 국내
+    ),
+}
+
+_DEFAULT_RSS_DOMESTIC: dict[IssueCategory, tuple[str, ...]] = {
+    IssueCategory.AI_TECH: (
+        "http://rss.etnews.co.kr/Section901.xml",                   # 전자신문
+        "http://www.khan.co.kr/rss/rssdata/it_news.xml",            # 경향신문 IT
+        "https://www.hani.co.kr/rss/science/",                     # 한겨레 과학
+        "https://rss.donga.com/science.xml",                        # 동아일보 과학
+    ),
+    IssueCategory.ECONOMY: (
+        "https://www.hankyung.com/feed",                            # 한국경제
+        "https://www.hani.co.kr/rss/economy/",                     # 한겨레 경제
+        "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml",  # 조선일보 경제
+        "https://newsis.com/RSS/economy.xml",                       # 뉴시스 경제
+        "https://rss.donga.com/economy.xml",                        # 동아일보 경제
+    ),
+    IssueCategory.SOCIETY: (
+        "https://www.hani.co.kr/rss/society/",                     # 한겨레 사회
+        "https://www.hani.co.kr/rss/international/",               # 한겨레 국제
+        "https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml",  # 조선일보 국제
+        "https://newsis.com/RSS/society.xml",                       # 뉴시스 사회
+        "https://rss.donga.com/national.xml",                       # 동아일보 사회
+    ),
+    IssueCategory.HEALTH: (
+        "https://newsis.com/RSS/health.xml",                        # 뉴시스 건강
+        "https://rss.donga.com/health.xml",                         # 동아일보 건강
+    ),
+    IssueCategory.ENTERTAINMENT_TREND: (
         "https://www.hani.co.kr/rss/culture/",                     # 한겨레 문화
         "https://www.chosun.com/arc/outboundfeeds/rss/category/entertainments/?outputType=xml",  # 조선일보 연예
         "https://newsis.com/RSS/entertain.xml",                     # 뉴시스 연예
@@ -158,7 +163,9 @@ _DEFAULT_TWITTER_X: dict[IssueCategory, tuple[str, ...]] = {
 def _build_default_pools(config_path: Path) -> CategorySourcePools:
     return CategorySourcePools(
         path=str(config_path),
-        rss=_DEFAULT_RSS,
+        rss={},
+        rss_domestic=_DEFAULT_RSS_DOMESTIC,
+        rss_international=_DEFAULT_RSS_INTERNATIONAL,
         youtube=_DEFAULT_YOUTUBE,
         reddit={},
         twitter_x=_DEFAULT_TWITTER_X,
