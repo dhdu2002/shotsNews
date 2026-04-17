@@ -4,8 +4,15 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
 $SpecPath = Join-Path $Root "packaging\app.spec"
+$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
+
+if (Test-Path $VenvPython) {
+    $PythonExe = $VenvPython
+} else {
+    $PythonExe = "python"
+}
 
 Write-Host "[build] PyInstaller 빌드를 시작합니다."
-python -m PyInstaller --noconfirm "$SpecPath"
+& $PythonExe -m PyInstaller --noconfirm "$SpecPath"
 
 Write-Host "[build] 완료: dist\shotsNews"
