@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from os import environ
 from typing import TYPE_CHECKING
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from .bootstrap import build_application_context
 from .config.settings import save_settings_file
@@ -75,6 +75,9 @@ class DesktopApp:
                 "top_issues": [],
                 "source_failures": [],
                 "sources": [],
+                "source_pools_path": "",
+                "source_pools_enabled": False,
+                "source_pool_summary": "",
                 "db_path": "",
                 "data_dir": "",
                 "log_dir": "",
@@ -100,9 +103,11 @@ class DesktopApp:
             latest_run_date = date.fromisoformat(str(latest_run["run_date"]))
 
         pending = context.repository.list_pending_sync(latest_run_date)
-        top_issues = context.repository.list_ranked_issue_summaries(
-            latest_run_date,
-            limit=context.settings.top_k * 5,
+        top_issues = self._normalize_top_issue_payloads(
+            context.repository.list_ranked_issue_summaries(
+                latest_run_date,
+                limit=context.settings.top_k * 5,
+            )
         )
         source_failures = []
         if latest_run is not None:
@@ -122,6 +127,9 @@ class DesktopApp:
             "top_issues": top_issues,
             "source_failures": source_failures,
             "sources": self._build_source_snapshots(),
+            "source_pools_path": context.settings.source_pools.path,
+            "source_pools_enabled": context.settings.source_pools.enabled,
+            "source_pool_summary": self._build_source_pool_summary(),
             "db_path": context.db_path,
             "data_dir": str(context.paths.root_data_dir),
             "log_dir": str(context.paths.log_dir),
@@ -138,6 +146,82 @@ class DesktopApp:
             "twitter_bearer_token_masked": self._mask_secret(context.settings.twitter_bearer_token),
             "last_manual_run": self.last_manual_run,
         }
+
+    @staticmethod
+    def _normalize_top_issue_payloads(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """런타임 status payload에 점수 총합/세부항목 키를 안정적으로 보장한다."""
+        normalized: list[dict[str, Any]] = []
+        for item in items:
+            category = str(item.get("category") or "")
+            final_category = str(item.get("final_category") or category)
+            initial_category = str(item.get("initial_category") or "")
+            normalized.append(
+                {
+                    **item,
+                    "category": final_category or category,
+                    "final_category": final_category,
+                    "initial_category": initial_category,
+                    "duplicate_count": DesktopApp._to_int(item.get("duplicate_count")),
+                    "score": DesktopApp._normalize_score_payload(item.get("score")),
+                    "score_breakdown": DesktopApp._normalize_score_breakdown(item.get("score_breakdown")),
+                }
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_score_payload(value: object) -> float | str | dict[str, object]:
+        """숫자/문자/딕셔너리 형태의 점수 payload를 UI 친화적으로 정리한다."""
+        if isinstance(value, dict):
+            source = cast(dict[object, object], value)
+            normalized: dict[str, object] = {}
+            for key, item in source.items():
+                normalized[str(key)] = item
+            return normalized
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return 0.0
+            try:
+                return float(stripped)
+            except ValueError:
+                return stripped
+        return 0.0
+
+    @staticmethod
+    def _normalize_score_breakdown(value: object) -> dict[str, object] | list[object] | str:
+        """세부 점수 payload를 UI 프리젠터가 그대로 읽을 수 있는 형태로 정리한다."""
+        if isinstance(value, dict):
+            source = cast(dict[object, object], value)
+            normalized: dict[str, object] = {}
+            for key, item in source.items():
+                normalized[str(key)] = item
+            return normalized
+        if isinstance(value, list):
+            return cast(list[object], value)
+        if isinstance(value, str):
+            return value
+        return {}
+
+    @staticmethod
+    def _to_int(value: object) -> int:
+        """숫자/문자 혼합 입력도 안전하게 정수로 정규화한다."""
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return 0
+            try:
+                return int(float(stripped))
+            except ValueError:
+                return 0
+        return 0
 
     def save_settings(self, values: dict[str, str]) -> str:
         """설정 파일을 저장하고 런타임을 다시 로드한다."""
@@ -156,33 +240,67 @@ class DesktopApp:
         """UI에 표시할 수집원 구성 상태를 만든다."""
         assert self.context is not None
 
+        collector = self.context.collector
+        describe_fn = getattr(collector, "describe_sources", None)
+        if callable(describe_fn):
+            snapshots = describe_fn()
+            if isinstance(snapshots, list):
+                snapshot_items = cast(list[object], snapshots)
+                normalized_snapshots: list[dict[str, Any]] = []
+                for item in snapshot_items:
+                    if not isinstance(item, dict):
+                        continue
+                    source_item = cast(dict[object, object], item)
+                    normalized_item: dict[str, Any] = {}
+                    for key, value in source_item.items():
+                        normalized_item[str(key)] = value
+                    normalized_snapshots.append(normalized_item)
+                return normalized_snapshots
+
         settings = self.context.settings
         return [
             {
                 "name": "rss",
                 "configured_count": len(settings.rss_urls),
                 "configured": bool(settings.rss_urls),
-                "note": f"피드 {len(settings.rss_urls)}개 연결",
+                "note": f"공용 피드 {len(settings.rss_urls)}개",
             },
             {
                 "name": "youtube",
                 "configured_count": len(settings.youtube_feed_urls),
                 "configured": bool(settings.youtube_feed_urls),
-                "note": f"피드 {len(settings.youtube_feed_urls)}개 연결",
+                "note": f"공용 피드 {len(settings.youtube_feed_urls)}개",
             },
             {
                 "name": "reddit",
                 "configured_count": len(settings.reddit_subreddits),
                 "configured": bool(settings.reddit_subreddits),
-                "note": f"서브레딧 {len(settings.reddit_subreddits)}개 연결",
+                "note": f"공용 서브레딧 {len(settings.reddit_subreddits)}개",
             },
             {
                 "name": "twitter_x",
                 "configured_count": 1 if settings.twitter_bearer_token else 0,
                 "configured": bool(settings.twitter_bearer_token),
-                "note": "Bearer 토큰 필요",
+                "note": "공용 쿼리 1개 · Bearer 토큰 필요",
             },
         ]
+
+    def _build_source_pool_summary(self) -> str:
+        """카테고리별 소스 풀 적용 여부를 한 줄 요약으로 반환한다."""
+        assert self.context is not None
+
+        pools = self.context.settings.source_pools
+        if not pools.enabled:
+            return "카테고리 전용 source pool 없이 공용 환경변수 소스를 사용 중입니다."
+
+        summaries: list[str] = []
+        for source_name in ("rss", "youtube", "reddit", "twitter_x"):
+            categories = pools.categories_for_source(source_name)
+            if not categories:
+                continue
+            category_names = ", ".join(category.label for category in categories)
+            summaries.append(f"{source_name}: {len(categories)}개 카테고리 ({category_names})")
+        return "카테고리 전용 source pool 적용 중 · " + " / ".join(summaries)
 
     @staticmethod
     def _format_datetime(value: datetime | None) -> str | None:

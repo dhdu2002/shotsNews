@@ -30,6 +30,21 @@ _CATEGORY_LABELS = {
     "entertainment_trend": "연예/트렌드",
 }
 
+_SCORE_BREAKDOWN_LABELS = {
+    "impact": "파급력",
+    "timeliness": "시의성",
+    "freshness": "신선도",
+    "novelty": "신선도",
+    "shareability": "확산성",
+    "trend": "트렌드성",
+    "relevance": "관련성",
+    "fit": "숏폼 적합도",
+    "short_form_fit": "숏폼 적합도",
+    "clarity": "명확성",
+    "source": "출처 신뢰도",
+    "credibility": "출처 신뢰도",
+}
+
 _SYNC_LABELS = {
     "pending": "대기",
     "synced": "완료",
@@ -214,6 +229,16 @@ class DashboardPresenter:
                     "로그와 캐시를 포함한 로컬 런타임 작업 폴더입니다.",
                     editable=False,
                 ),
+                SettingsField(
+                    "SOURCE_POOLS_JSON",
+                    "카테고리별 소스 풀 파일",
+                    str(runtime_status.get("source_pools_path") or ""),
+                    str(
+                        runtime_status.get("source_pool_summary")
+                        or "파일이 없으면 공용 환경변수 소스를 그대로 사용합니다."
+                    ),
+                    editable=False,
+                ),
             ),
         )
 
@@ -241,13 +266,21 @@ class DashboardPresenter:
                 f"최근 실행에서 실패가 발생했습니다. 수집 {collected}건, 실패 기록 {max(1, failure_count)}건입니다.",
             )
         if source_failures or failure_count:
+            dedupe_summary = self._build_dedupe_summary(latest_run)
+            detail = f"최근 실행은 완료되었지만 소스 경고 {max(len(source_failures), failure_count)}건이 남아 있습니다."
+            if dedupe_summary:
+                detail = f"{detail} {dedupe_summary}"
             return (
                 "주의 필요",
-                f"최근 실행은 완료되었지만 소스 경고 {max(len(source_failures), failure_count)}건이 남아 있습니다.",
+                detail,
             )
+        dedupe_summary = self._build_dedupe_summary(latest_run)
+        detail = f"최근 실행에서 {collected}건 수집, {ranked}건 Top 이슈 선정, {queued}건 동기화 대기 상태입니다."
+        if dedupe_summary:
+            detail = f"{detail} {dedupe_summary}"
         return (
             "정상",
-            f"최근 실행에서 {collected}건 수집, {ranked}건 Top 이슈 선정, {queued}건 동기화 대기 상태입니다.",
+            detail,
         )
 
     def _build_linked_steps(self, runtime_status: dict[str, Any]) -> tuple[LinkedStatusStep, ...]:
@@ -259,10 +292,13 @@ class DashboardPresenter:
 
         ranked_count = int(latest_run.get("ranked_count") or 0)
         pending_sync = int(queue.get("pending") or 0)
+        dedupe_summary = self._build_dedupe_summary(latest_run)
 
         source_detail = "아직 실행 기록이 없습니다."
         if latest_run:
             source_detail = f"최근 실행 기준 경고 {len(source_failures)}건"
+            if dedupe_summary:
+                source_detail = f"{source_detail} · {dedupe_summary}"
 
         notion_detail = "Notion 연동이 꺼져 있습니다."
         notion_healthy = True
@@ -338,22 +374,247 @@ class DashboardPresenter:
         """분류별 Top 5 표 데이터를 구성한다."""
         rows: list[TopIssueRow] = []
         for issue in top_issues:
-            category = str(issue.get("category") or "")
+            category = self._resolve_issue_category(issue)
             title = str(issue.get("title") or "제목 없음")
-            source_url = str(issue.get("source_url") or "")
+            source_url = self._resolve_issue_source_url(issue)
+            score_label, score_tooltip = self._build_score_display(issue)
             rows.append(
                 TopIssueRow(
                     rank=int(issue.get("rank") or 0),
                     title=title,
                     translated_title=self._translate_title(title),
-                    source_name=self._build_source_label_from_url(source_url),
+                    source_name=self._build_issue_source_label(issue, source_url),
                     source_url=source_url,
-                    severity=_CATEGORY_LABELS.get(category, category or "미분류"),
-                    score=f"{float(issue.get('score') or 0):.1f}",
+                    category_key=category,
+                    severity=self._label_for_category(category),
+                    score=score_label,
                     readiness=_SYNC_LABELS.get(str(issue.get("sync_status") or ""), "대기"),
+                    category_tooltip=self._build_category_tooltip(issue, category),
+                    score_tooltip=score_tooltip,
+                    status_tooltip=self._build_status_tooltip(issue),
                 )
             )
         return tuple(rows)
+
+    def _resolve_issue_category(self, issue: dict[str, Any]) -> str:
+        """최종 분류 우선 규칙으로 카테고리 키를 고른다."""
+        for key in ("final_category", "category", "initial_category"):
+            value = str(issue.get(key) or "").strip()
+            if value:
+                return value
+        return ""
+
+    def _resolve_issue_source_url(self, issue: dict[str, Any]) -> str:
+        """중복 정리 이후에도 대표 링크를 우선 열 수 있도록 URL 후보를 고른다."""
+        for key in ("source_url", "canonical_source_url", "url"):
+            value = str(issue.get(key) or "").strip()
+            if value:
+                return value
+        return ""
+
+    def _build_issue_source_label(self, issue: dict[str, Any], source_url: str) -> str:
+        """명시적 출처명이 있으면 사용하고, 없으면 URL에서 짧은 이름을 만든다."""
+        for key in ("source_name", "canonical_source_name"):
+            value = str(issue.get(key) or "").strip()
+            if value:
+                return value
+        return self._build_source_label_from_url(source_url)
+
+    def _build_category_tooltip(self, issue: dict[str, Any], category: str) -> str:
+        """최종/초기 분류와 중복 메타데이터를 분류 셀 툴팁으로 정리한다."""
+        final_category = str(issue.get("final_category") or category or "").strip()
+        initial_category = str(issue.get("initial_category") or "").strip()
+        duplicate_count = self._to_int(issue.get("duplicate_count"))
+        tooltip_lines = [f"분류: {self._label_for_category(category)}"]
+
+        if final_category:
+            tooltip_lines.append(f"최종 분류: {self._label_for_category(final_category)}")
+
+        if initial_category and initial_category != final_category:
+            tooltip_lines.append(f"초기 분류: {self._label_for_category(initial_category)}")
+
+        if duplicate_count > 0:
+            tooltip_lines.append(f"중복 묶음: {duplicate_count}건")
+
+        if self._is_canonical_issue(issue):
+            tooltip_lines.append("대표 이슈 기준으로 유지된 항목입니다.")
+
+        return "\n".join(tooltip_lines)
+
+    def _build_status_tooltip(self, issue: dict[str, Any]) -> str:
+        """상태 셀 툴팁에 동기화/중복 관련 보조 정보를 붙인다."""
+        sync_status = _SYNC_LABELS.get(str(issue.get("sync_status") or ""), "대기")
+        duplicate_count = self._to_int(issue.get("duplicate_count"))
+        tooltip_lines = [f"동기화 상태: {sync_status}"]
+
+        if duplicate_count > 0:
+            tooltip_lines.append(f"중복 정리된 관련 항목: {duplicate_count}건")
+
+        if self._is_canonical_issue(issue):
+            tooltip_lines.append("이 항목은 대표(canonical) 이슈입니다.")
+
+        return "\n".join(tooltip_lines)
+
+    def _build_score_display(self, issue: dict[str, Any]) -> tuple[str, str]:
+        """숏폼 점수와 breakdown 툴팁을 UI 표시용으로 정리한다."""
+        score_payload = issue.get("score")
+        breakdown_payload = (
+            issue.get("score_breakdown")
+            or issue.get("score_details")
+            or issue.get("score_detail")
+            or issue.get("breakdown")
+        )
+        summary_payload = issue.get("score_summary")
+
+        if isinstance(score_payload, dict):
+            breakdown_payload = (
+                breakdown_payload
+                or score_payload.get("breakdown")
+                or score_payload.get("details")
+                or score_payload.get("components")
+            )
+            summary_payload = summary_payload or score_payload.get("summary")
+            score_value = (
+                score_payload.get("label")
+                or score_payload.get("short_label")
+                or score_payload.get("value")
+                or score_payload.get("score")
+                or score_payload.get("total")
+            )
+        else:
+            score_value = score_payload
+
+        score_label = self._format_score_value(score_value)
+        tooltip_lines = [f"숏폼 점수: {score_label}"]
+
+        if summary_payload:
+            tooltip_lines.append(str(summary_payload))
+
+        breakdown_lines = self._format_score_breakdown_lines(breakdown_payload)
+        if breakdown_lines:
+            tooltip_lines.append("")
+            tooltip_lines.append("세부 점수")
+            tooltip_lines.extend(breakdown_lines)
+
+        return score_label, "\n".join(tooltip_lines)
+
+    def _format_score_value(self, value: object) -> str:
+        """점수 원본값을 표 셀에 맞는 짧은 문자열로 바꾼다."""
+        if value is None or value == "":
+            return "-"
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return "-"
+            try:
+                return f"{float(stripped):.1f}점"
+            except ValueError:
+                return stripped
+        if isinstance(value, (int, float)):
+            return f"{float(value):.1f}점"
+        return str(value)
+
+    def _format_score_breakdown_lines(self, breakdown: object) -> list[str]:
+        """런타임 breakdown payload를 툴팁 줄 목록으로 정리한다."""
+        if isinstance(breakdown, dict):
+            lines: list[str] = []
+            for key, value in breakdown.items():
+                if value in (None, ""):
+                    continue
+                label = _SCORE_BREAKDOWN_LABELS.get(str(key), self._prettify_breakdown_key(str(key)))
+                lines.append(f"• {label}: {self._format_breakdown_value(value)}")
+            return lines
+
+        if isinstance(breakdown, list):
+            lines = []
+            for item in breakdown:
+                if isinstance(item, dict):
+                    label = str(item.get("label") or item.get("name") or item.get("key") or "항목")
+                    value = item.get("value") or item.get("score") or item.get("total")
+                    if value in (None, ""):
+                        continue
+                    lines.append(f"• {label}: {self._format_breakdown_value(value)}")
+                    continue
+                if item not in (None, ""):
+                    lines.append(f"• {item}")
+            return lines
+
+        if breakdown in (None, ""):
+            return []
+        return [f"• {breakdown}"]
+
+    def _format_breakdown_value(self, value: object) -> str:
+        """breakdown 내부 값을 읽기 쉬운 짧은 텍스트로 바꾼다."""
+        if isinstance(value, (int, float)):
+            return f"{float(value):.1f}"
+        return str(value)
+
+    def _label_for_category(self, category: str) -> str:
+        """UI 표시에 맞는 카테고리 라벨을 반환한다."""
+        normalized = category.strip()
+        if not normalized:
+            return "미분류"
+        return _CATEGORY_LABELS.get(normalized, normalized.replace("_", "/"))
+
+    def _build_dedupe_summary(self, latest_run: dict[str, Any]) -> str:
+        """실행 요약에 붙일 중복 정리 보조 문구를 만든다."""
+        duplicate_count = self._to_int(
+            latest_run.get("duplicate_count")
+            or latest_run.get("deduped_count")
+            or latest_run.get("duplicates_removed_count")
+        )
+        canonical_count = self._to_int(latest_run.get("canonical_count"))
+        summary_parts: list[str] = []
+
+        if duplicate_count > 0:
+            summary_parts.append(f"중복 정리 {duplicate_count}건")
+
+        if canonical_count > 0:
+            summary_parts.append(f"대표 이슈 {canonical_count}건")
+
+        return " · ".join(summary_parts)
+
+    def _is_canonical_issue(self, issue: dict[str, Any]) -> bool:
+        """대표(canonical) 이슈 표식이 있으면 True를 반환한다."""
+        return any(
+            self._to_bool(issue.get(key))
+            for key in ("is_canonical", "canonical", "canonical_marker")
+        )
+
+    @staticmethod
+    def _to_bool(value: object) -> bool:
+        """런타임 payload의 다양한 불리언 표현을 안전하게 해석한다."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+        return False
+
+    @staticmethod
+    def _to_int(value: object) -> int:
+        """문자열/실수로 들어온 카운트 값도 정수로 정규화한다."""
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return 0
+            try:
+                return int(float(stripped))
+            except ValueError:
+                return 0
+        return 0
+
+    @staticmethod
+    def _prettify_breakdown_key(value: str) -> str:
+        """breakdown 키를 간단한 라벨 형태로 정리한다."""
+        return value.replace("_", " ").strip().title()
 
     def _translate_title(self, title: str) -> str:
         """영문 제목은 간단히 한국어로 번역해 표시한다."""
@@ -402,6 +663,7 @@ class DashboardPresenter:
                         f"최근 실행 상태: {latest_run.get('status', 'unknown')} · "
                         f"수집 {latest_run.get('collected_count', 0)}건 · "
                         f"Top {latest_run.get('ranked_count', 0)}건"
+                        f"{self._build_runtime_log_suffix(latest_run)}"
                     ),
                 )
             )
@@ -428,6 +690,13 @@ class DashboardPresenter:
             logs.append(LogEntry("지금", "안내", "런타임이 시작되었고 첫 상태 갱신을 기다리는 중입니다."))
 
         return tuple(logs)
+
+    def _build_runtime_log_suffix(self, latest_run: dict[str, Any]) -> str:
+        """최근 실행 로그 뒤에 붙일 dedupe 보조 문구를 만든다."""
+        summary = self._build_dedupe_summary(latest_run)
+        if not summary:
+            return ""
+        return f" · {summary}"
 
     def _build_next_run_label(self, runtime_status: dict[str, Any]) -> str:
         """다음 실행 예상 시각을 문자열로 만든다."""
