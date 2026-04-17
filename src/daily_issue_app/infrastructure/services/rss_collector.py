@@ -12,15 +12,36 @@ from xml.etree import ElementTree
 from ...domain.enums import IssueCategory
 from ...domain.enums import SourceType
 from ...domain.models import IssueCandidate
+from ...config.source_pools import build_source_configuration_snapshot
 
 
 class RSSCollector:
     """카테고리 키워드 기반 RSS 수집기."""
 
-    def __init__(self, feed_urls: tuple[str, ...], default_limit: int = 20, timeout_seconds: int = 15) -> None:
+    def __init__(
+        self,
+        feed_urls: tuple[str, ...],
+        default_limit: int = 20,
+        timeout_seconds: int = 15,
+        category_feed_urls: dict[IssueCategory, tuple[str, ...]] | None = None,
+    ) -> None:
         self._feed_urls = tuple(url for url in feed_urls if url)
+        self._category_feed_urls = {category: tuple(url for url in urls if url) for category, urls in (category_feed_urls or {}).items()}
         self._default_limit = default_limit
         self._timeout_seconds = timeout_seconds
+
+    def _resolve_feed_urls(self, category: IssueCategory) -> tuple[str, ...]:
+        """카테고리 전용 풀이 있으면 우선 사용하고, 없으면 공용 풀로 fallback 한다."""
+        return self._category_feed_urls.get(category, self._feed_urls)
+
+    def describe_source_config(self) -> dict[str, object]:
+        """런타임 status용 RSS 소스 구성 요약을 반환한다."""
+        return build_source_configuration_snapshot(
+            source_name="rss",
+            shared_values=self._feed_urls,
+            category_values=self._category_feed_urls,
+            unit_label="피드",
+        )
 
     def _parse_pubdate(self, value: str) -> datetime:
         if not value:
@@ -57,7 +78,7 @@ class RSSCollector:
         _ = target_date
         category_keywords = self._keywords_for_category(category)
         candidates: list[IssueCandidate] = []
-        for feed_url in self._feed_urls:
+        for feed_url in self._resolve_feed_urls(category):
             request = Request(feed_url, headers={"User-Agent": "daily-issue-desktop/0.1"})
             try:
                 with urlopen(request, timeout=self._timeout_seconds) as response:

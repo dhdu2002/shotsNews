@@ -36,3 +36,28 @@ class MultiSourceCollector:
         failures = list(self._failures)
         self._failures.clear()
         return failures
+
+    def describe_sources(self) -> list[dict[str, object]]:
+        """각 수집기의 현재 소스 구성 상태를 UI 친화적으로 반환한다."""
+        snapshots: list[dict[str, object]] = []
+        for source_name, collector in self._collectors.items():
+            describe_fn = getattr(collector, "describe_source_config", None)
+            if callable(describe_fn):
+                snapshot = describe_fn()
+                if isinstance(snapshot, dict):
+                    normalized = {
+                        str(key): value
+                        for key, value in snapshot.items()
+                    }
+                    snapshots.append(normalized)
+                    continue
+                continue
+            snapshots.append(
+                {
+                    "name": source_name,
+                    "configured_count": 0,
+                    "configured": False,
+                    "note": "수집기 상태 요약을 제공하지 않습니다.",
+                }
+            )
+        return snapshots
