@@ -13,7 +13,16 @@ from urllib.parse import quote_plus
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-from .models import DashboardState, LinkedStatusStep, LogEntry, SettingsField, SettingsState, SourceStatusRow, TopIssueRow
+from .models import (
+    CategoryTopIssueSection,
+    DashboardState,
+    LinkedStatusStep,
+    LogEntry,
+    SettingsField,
+    SettingsState,
+    SourceStatusRow,
+    TopIssueRow,
+)
 
 _SOURCE_LABELS = {
     "rss": "RSS",
@@ -29,6 +38,8 @@ _CATEGORY_LABELS = {
     "health": "건강",
     "entertainment_trend": "연예/트렌드",
 }
+
+_CATEGORY_ORDER = tuple(_CATEGORY_LABELS.keys())
 
 _SCORE_BREAKDOWN_LABELS = {
     "impact": "파급력",
@@ -108,15 +119,14 @@ class DashboardPresenter:
         linked_steps = self._build_linked_steps(runtime_status)
         source_rows = self._build_source_rows(sources, source_failures, latest_run)
         all_top_rows = self._build_top_issue_rows(top_issues)
-        domestic_rows = tuple(r for r in all_top_rows if r.region == "domestic")
-        international_rows = tuple(r for r in all_top_rows if r.region != "domestic")
+        category_sections = self._build_category_sections(all_top_rows)
         runtime_logs = self._build_runtime_logs(runtime_status)
         logs = tuple([*interaction_logs, *runtime_logs][:8])
 
         return DashboardState(
             window_title="데일리 이슈 데스크톱",
             dashboard_title="운영 대시보드",
-            dashboard_subtitle="오늘의 국내·국외 Top 5, 수집 상태와 Notion 대기 현황을 한 화면에서 확인합니다.",
+            dashboard_subtitle="5개 분류별 국내·해외 Top 5와 수집 상태, Notion 대기 현황을 한 화면에서 확인합니다.",
             overall_status=overall_status,
             overall_detail=overall_detail,
             next_run_label=self._build_next_run_label(runtime_status),
@@ -125,8 +135,7 @@ class DashboardPresenter:
             notion_sync_detail=self._build_notion_detail(runtime_status),
             linked_steps=linked_steps,
             source_rows=source_rows,
-            top_issue_rows=international_rows,
-            domestic_top_issue_rows=domestic_rows,
+            category_sections=category_sections,
             log_entries=logs,
         )
 
@@ -306,7 +315,7 @@ class DashboardPresenter:
         return (
             LinkedStatusStep("소스 수집", source_detail, healthy=not source_failures),
             LinkedStatusStep(
-                "오늘의 Top 5",
+                "분야별 Top 5",
                 f"선정 {ranked_count}건" if ranked_count else "아직 선정 결과가 없습니다.",
                 healthy=ranked_count > 0,
             ),
@@ -368,7 +377,7 @@ class DashboardPresenter:
         return tuple(rows)
 
     def _build_top_issue_rows(self, top_issues: list[dict[str, Any]]) -> tuple[TopIssueRow, ...]:
-        """분류별 Top 5 표 데이터를 구성한다."""
+        """분류별 국내/해외 Top 5 표 데이터를 구성한다."""
         rows: list[TopIssueRow] = []
         for issue in top_issues:
             category = self._resolve_issue_category(issue)
@@ -393,6 +402,60 @@ class DashboardPresenter:
                 )
             )
         return tuple(rows)
+
+    def _build_category_sections(self, rows: tuple[TopIssueRow, ...]) -> tuple[CategoryTopIssueSection, ...]:
+        """카테고리별로 국내/해외 Top 5 행을 묶어 UI 섹션 상태를 만든다."""
+        ordered_rows = sorted(
+            rows,
+            key=lambda row: (
+                self._category_sort_key(row.category_key),
+                0 if row.region == "domestic" else 1,
+                row.rank,
+            ),
+        )
+
+        sections: list[CategoryTopIssueSection] = []
+        for category_key in _CATEGORY_ORDER:
+            domestic_rows = tuple(
+                row for row in ordered_rows if row.category_key == category_key and row.region == "domestic"
+            )[:5]
+            international_rows = tuple(
+                row for row in ordered_rows if row.category_key == category_key and row.region != "domestic"
+            )[:5]
+            sections.append(
+                CategoryTopIssueSection(
+                    category_key=category_key,
+                    category_label=self._label_for_category(category_key),
+                    domestic_rows=domestic_rows,
+                    international_rows=international_rows,
+                )
+            )
+
+        uncategorized_domestic = tuple(
+            row for row in ordered_rows if row.category_key not in _CATEGORY_ORDER and row.region == "domestic"
+        )[:5]
+        uncategorized_international = tuple(
+            row for row in ordered_rows if row.category_key not in _CATEGORY_ORDER and row.region != "domestic"
+        )[:5]
+        if uncategorized_domestic or uncategorized_international:
+            sections.append(
+                CategoryTopIssueSection(
+                    category_key="",
+                    category_label="미분류",
+                    domestic_rows=uncategorized_domestic,
+                    international_rows=uncategorized_international,
+                )
+            )
+
+        return tuple(sections)
+
+    @staticmethod
+    def _category_sort_key(category_key: str) -> int:
+        """카테고리를 정의된 대시보드 표시 순서에 맞춰 정렬한다."""
+        try:
+            return _CATEGORY_ORDER.index(category_key)
+        except ValueError:
+            return len(_CATEGORY_ORDER)
 
     def _resolve_issue_category(self, issue: dict[str, Any]) -> str:
         """최종 분류 우선 규칙으로 카테고리 키를 고른다."""

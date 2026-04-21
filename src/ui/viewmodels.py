@@ -8,7 +8,16 @@ from datetime import datetime
 from threading import Lock, Thread
 from PySide6.QtCore import QObject, Signal
 
-from .models import DashboardState, LinkedStatusStep, LogEntry, SettingsField, SettingsState, SourceStatusRow, TopIssueRow
+from .models import (
+    CategoryTopIssueSection,
+    DashboardState,
+    LinkedStatusStep,
+    LogEntry,
+    SettingsField,
+    SettingsState,
+    SourceStatusRow,
+    TopIssueRow,
+)
 from .runtime_bridge import DashboardPresenter, DesktopAppAdapter
 
 
@@ -23,36 +32,42 @@ def build_mock_dashboard_state() -> DashboardState:
         source_rows=(
             SourceStatusRow("RSS", "대기", "아직 없음", 0, "DesktopApp 연결 후 실제 상태를 표시합니다."),
         ),
-        top_issue_rows=(
-            TopIssueRow(
-                1,
-                "런타임 연결을 기다리는 중입니다.",
-                "런타임 연결을 기다리는 중입니다.",
-                "출처 없음",
-                "",
-                "",
-                "미분류",
-                "0.0점",
-                "대기",
-                "분류 정보가 아직 없습니다.",
-                "숏폼 점수: 0.0점",
-                region="international",
-            ),
-        ),
-        domestic_top_issue_rows=(
-            TopIssueRow(
-                1,
-                "런타임 연결을 기다리는 중입니다.",
-                "런타임 연결을 기다리는 중입니다.",
-                "출처 없음",
-                "",
-                "",
-                "미분류",
-                "0.0점",
-                "대기",
-                "분류 정보가 아직 없습니다.",
-                "숏폼 점수: 0.0점",
-                region="domestic",
+        category_sections=(
+            CategoryTopIssueSection(
+                category_key="ai_tech",
+                category_label="AI/테크",
+                domestic_rows=(
+                    TopIssueRow(
+                        1,
+                        "런타임 연결을 기다리는 중입니다.",
+                        "런타임 연결을 기다리는 중입니다.",
+                        "출처 없음",
+                        "",
+                        "ai_tech",
+                        "AI/테크",
+                        "0.0점",
+                        "대기",
+                        "분류 정보가 아직 없습니다.",
+                        "숏폼 점수: 0.0점",
+                        region="domestic",
+                    ),
+                ),
+                international_rows=(
+                    TopIssueRow(
+                        1,
+                        "런타임 연결을 기다리는 중입니다.",
+                        "런타임 연결을 기다리는 중입니다.",
+                        "출처 없음",
+                        "",
+                        "ai_tech",
+                        "AI/테크",
+                        "0.0점",
+                        "대기",
+                        "분류 정보가 아직 없습니다.",
+                        "숏폼 점수: 0.0점",
+                        region="international",
+                    ),
+                ),
             ),
         ),
         log_entries=(
@@ -210,7 +225,7 @@ class DashboardViewModel(QObject):
                     overall_detail="DesktopApp 상태를 가져오지 못했습니다. 로그 패널을 확인해 주세요.",
                     linked_steps=self._dashboard_state.linked_steps,
                     source_rows=self._dashboard_state.source_rows,
-                    top_issue_rows=self._dashboard_state.top_issue_rows,
+                    category_sections=self._dashboard_state.category_sections,
                     log_entries=self._interaction_logs,
                 )
             )

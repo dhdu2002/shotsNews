@@ -45,6 +45,16 @@ class TopIssueRow:
 
 
 @dataclass(frozen=True)
+class CategoryTopIssueSection:
+    """카테고리별 국내/해외 Top 5 묶음을 표현한다."""
+
+    category_key: str
+    category_label: str
+    domestic_rows: tuple[TopIssueRow, ...] = field(default_factory=tuple)
+    international_rows: tuple[TopIssueRow, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
 class LogEntry:
     """운영자에게 보여줄 최근 로그 한 줄이다."""
 
@@ -92,6 +102,5 @@ class DashboardState:
     notion_sync_detail: str = "동기화 상태를 불러오는 중입니다."
     linked_steps: tuple[LinkedStatusStep, ...] = field(default_factory=tuple)
     source_rows: tuple[SourceStatusRow, ...] = field(default_factory=tuple)
-    top_issue_rows: tuple[TopIssueRow, ...] = field(default_factory=tuple)
-    domestic_top_issue_rows: tuple[TopIssueRow, ...] = field(default_factory=tuple)
+    category_sections: tuple[CategoryTopIssueSection, ...] = field(default_factory=tuple)
     log_entries: tuple[LogEntry, ...] = field(default_factory=tuple)
