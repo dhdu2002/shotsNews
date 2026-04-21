@@ -12,6 +12,7 @@ from typing import Any, Callable, cast
 
 from .bootstrap import build_application_context
 from .config.settings import save_settings_file
+from .domain.enums import ScriptTone
 from .infrastructure.db.schema import bootstrap_sqlite_schema
 
 if TYPE_CHECKING:
@@ -146,6 +147,27 @@ class DesktopApp:
             "twitter_bearer_token_masked": self._mask_secret(context.settings.twitter_bearer_token),
             "last_manual_run": self.last_manual_run,
         }
+
+    def generate_issue_scripts(self, issue_id: str) -> dict[str, Any]:
+        """선택 이슈 1건의 3톤 스크립트를 즉시 생성하고 반환한다."""
+        if self.context is None:
+            self.start()
+
+        assert self.context is not None
+        issue = self.context.repository.get_issue_by_id(issue_id)
+        if issue is None:
+            raise ValueError("선택한 이슈를 찾을 수 없습니다.")
+
+        script_set = self.context.script_generator.generate(issue)
+        self.context.repository.save_scripts([script_set])
+        return self._build_issue_script_payload(issue.issue_id)
+
+    def get_issue_scripts(self, issue_id: str) -> dict[str, Any]:
+        """선택 이슈 1건의 저장된 3톤 스크립트를 반환한다."""
+        if self.context is None:
+            self.start()
+
+        return self._build_issue_script_payload(issue_id)
 
     @staticmethod
     def _normalize_top_issue_payloads(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -284,6 +306,28 @@ class DesktopApp:
                 "note": "공용 쿼리 1개 · Bearer 토큰 필요",
             },
         ]
+
+    def _build_issue_script_payload(self, issue_id: str) -> dict[str, Any]:
+        """이슈 ID 기준 초안/메타정보를 UI 친화 payload로 정리한다."""
+        assert self.context is not None
+
+        issue = self.context.repository.get_issue_by_id(issue_id)
+        if issue is None:
+            raise ValueError("선택한 이슈를 찾을 수 없습니다.")
+
+        scripts = self.context.repository.list_scripts_for_issue(issue_id)
+        tone_payload: dict[str, str] = {}
+        for tone in ScriptTone:
+            tone_payload[tone.value] = str(scripts.get(tone) or "")
+
+        return {
+            "issue_id": issue.issue_id,
+            "title": issue.title,
+            "source_url": issue.source_url,
+            "category": issue.category.value,
+            "score": issue.score,
+            "tones": tone_payload,
+        }
 
     def _build_source_pool_summary(self) -> str:
         """카테고리별 소스 풀 적용 여부를 한 줄 요약으로 반환한다."""

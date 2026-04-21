@@ -276,7 +276,7 @@ class SqliteIssueRepository:
                 list[sqlite3.Row],
                 conn.execute(
                 """
-                SELECT rank, title, category, source_url, sync_status
+                SELECT issue_id, rank, title, category, source_url, sync_status
                        , score, score_breakdown_json
                        , COALESCE(region, 'international') as region
                 FROM issues
@@ -290,6 +290,7 @@ class SqliteIssueRepository:
 
         return [
             {
+                "issue_id": str(row["issue_id"]),
                 "rank": row["rank"],
                 "title": str(row["title"]),
                 "category": str(row["category"]),
@@ -301,6 +302,41 @@ class SqliteIssueRepository:
             }
             for row in rows
         ]
+
+    def get_issue_by_id(self, issue_id: str) -> PersistedIssue | None:
+        """이슈 ID 기준 단건 이슈와 생성용 메타데이터를 반환한다."""
+        with connect_sqlite(self._db_path) as conn:
+            row = cast(
+                sqlite3.Row | None,
+                conn.execute(
+                    """
+                    SELECT issue_id, run_date, rank, category, title,
+                           score, score_breakdown_json, key_points_json, source_url, sync_status,
+                           COALESCE(region, 'international') as region
+                    FROM issues
+                    WHERE issue_id = ?
+                    LIMIT 1
+                    """,
+                    (issue_id,),
+                ).fetchone(),
+            )
+
+        if row is None:
+            return None
+
+        return PersistedIssue(
+            issue_id=str(row["issue_id"]),
+            run_date=str(row["run_date"]),
+            rank=int(row["rank"]),
+            category=IssueCategory(str(row["category"])),
+            title=str(row["title"]),
+            key_points=self._deserialize_key_points(row["key_points_json"]),
+            source_url=str(row["source_url"]),
+            score=float(row["score"] or 0.0),
+            score_breakdown=self._deserialize_score_breakdown(row["score_breakdown_json"]),
+            sync_status=RecordSyncStatus(str(row["sync_status"])),
+            region=str(row["region"]),
+        )
 
     @staticmethod
     def _serialize_score_breakdown(score_breakdown: ShortFormScoreBreakdown | None) -> str:

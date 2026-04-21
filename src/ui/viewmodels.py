@@ -6,11 +6,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from threading import Lock, Thread
+from typing import cast
 from PySide6.QtCore import QObject, Signal
 
 from .models import (
     CategoryTopIssueSection,
     DashboardState,
+    GeneratedToneDraft,
+    GenerationState,
     LinkedStatusStep,
     LogEntry,
     SettingsField,
@@ -41,6 +44,7 @@ def build_mock_dashboard_state() -> DashboardState:
                         1,
                         "런타임 연결을 기다리는 중입니다.",
                         "런타임 연결을 기다리는 중입니다.",
+                        "",
                         "출처 없음",
                         "",
                         "ai_tech",
@@ -57,6 +61,7 @@ def build_mock_dashboard_state() -> DashboardState:
                         1,
                         "런타임 연결을 기다리는 중입니다.",
                         "런타임 연결을 기다리는 중입니다.",
+                        "",
                         "출처 없음",
                         "",
                         "ai_tech",
@@ -85,10 +90,23 @@ def build_mock_settings_state() -> SettingsState:
     )
 
 
+def build_mock_generation_state() -> GenerationState:
+    """런타임 연결 전 생성 탭 기본 상태를 만든다."""
+    return GenerationState(
+        status_text="이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요.",
+        tones=(
+            GeneratedToneDraft("informative", "정보형", ""),
+            GeneratedToneDraft("stimulating", "자극형", ""),
+            GeneratedToneDraft("news", "뉴스형", ""),
+        ),
+    )
+
+
 class DashboardViewModel(QObject):
     """DesktopApp 상태 조회와 사용자 액션을 조율하는 Qt 뷰모델."""
 
     dashboard_state_changed = Signal(object)
+    generation_state_changed = Signal(object)
     settings_state_changed = Signal(object)
     busy_state_changed = Signal(bool)
     progress_changed = Signal(int, str, bool)
@@ -109,6 +127,7 @@ class DashboardViewModel(QObject):
         self._presenter = presenter or DashboardPresenter()
         self._interaction_logs: tuple[LogEntry, ...] = ()
         self._dashboard_state = dashboard_state or build_mock_dashboard_state()
+        self._generation_state = build_mock_generation_state()
         self._settings_state = settings_state or build_mock_settings_state()
         self._busy_lock = Lock()
         self._busy = False
@@ -120,6 +139,10 @@ class DashboardViewModel(QObject):
     @property
     def settings_state(self) -> SettingsState:
         return self._settings_state
+
+    @property
+    def generation_state(self) -> GenerationState:
+        return self._generation_state
 
     def emit_initial_state(self) -> None:
         """초기 상태를 런타임에서 읽어 화면에 뿌린다."""
@@ -135,6 +158,61 @@ class DashboardViewModel(QObject):
         """설정 상태를 갱신한다."""
         self._settings_state = state
         self.settings_state_changed.emit(self._settings_state)
+
+    def set_generation_state(self, state: GenerationState) -> None:
+        """생성 탭 상태를 갱신한다."""
+        self._generation_state = state
+        self.generation_state_changed.emit(self._generation_state)
+
+    def request_generate_issue_scripts(self, issue_row: TopIssueRow) -> None:
+        """선택 이슈 1건의 3톤 초안 생성을 요청한다."""
+        if not issue_row.issue_id:
+            self._append_log("오류", "선택 이슈 ID가 없어 쇼츠 초안을 생성할 수 없습니다.")
+            return
+        if not self._enter_busy_state():
+            self._append_log("안내", "이미 작업이 진행 중입니다. 잠시만 기다려 주세요.")
+            return
+
+        self.set_generation_state(
+            GenerationState(
+                issue_id=issue_row.issue_id,
+                title=issue_row.title,
+                translated_title=issue_row.translated_title,
+                source_name=issue_row.source_name,
+                source_url=issue_row.source_url,
+                category_label=issue_row.severity,
+                score=issue_row.score,
+                status_text="선택한 이슈로 3톤 쇼츠 초안을 생성 중입니다.",
+                tones=self._empty_tone_drafts(),
+            )
+        )
+        self.progress_changed.emit(0, "쇼츠 초안 생성 중", True)
+
+        def _generate() -> None:
+            try:
+                payload = self._runtime_adapter.generate_issue_scripts(issue_row.issue_id)
+                self.set_generation_state(self._build_generation_state(issue_row, payload, "최신 1건 초안을 불러왔습니다."))
+                self._append_log("안내", f"쇼츠 초안 생성 완료: {issue_row.translated_title}")
+                self.progress_changed.emit(100, "쇼츠 초안 생성 완료", False)
+            except Exception as exc:
+                self.set_generation_state(
+                    GenerationState(
+                        issue_id=issue_row.issue_id,
+                        title=issue_row.title,
+                        translated_title=issue_row.translated_title,
+                        source_name=issue_row.source_name,
+                        source_url=issue_row.source_url,
+                        category_label=issue_row.severity,
+                        score=issue_row.score,
+                        status_text=f"쇼츠 초안 생성 실패: {exc}",
+                        tones=self._empty_tone_drafts(),
+                    )
+                )
+                self._append_log("오류", f"쇼츠 초안 생성 실패: {exc}")
+                self.progress_changed.emit(100, "쇼츠 초안 생성 실패", False)
+            self._leave_busy_state()
+
+        Thread(target=_generate, daemon=True).start()
 
     def request_run(self) -> None:
         """사용자의 수동 실행 요청을 DesktopApp으로 전달한다."""
@@ -253,3 +331,37 @@ class DashboardViewModel(QObject):
         with self._busy_lock:
             self._busy = False
         self.busy_state_changed.emit(False)
+
+    @staticmethod
+    def _empty_tone_drafts() -> tuple[GeneratedToneDraft, ...]:
+        """초기/실패 상태에서 공통으로 쓰는 빈 3톤 목록을 만든다."""
+        return (
+            GeneratedToneDraft("informative", "정보형", ""),
+            GeneratedToneDraft("stimulating", "자극형", ""),
+            GeneratedToneDraft("news", "뉴스형", ""),
+        )
+
+    def _build_generation_state(
+        self,
+        issue_row: TopIssueRow,
+        payload: dict[str, object],
+        status_text: str,
+    ) -> GenerationState:
+        """런타임 생성 결과 payload를 생성 탭 상태로 변환한다."""
+        tones_payload = payload.get("tones")
+        tone_map = cast(dict[str, object], tones_payload) if isinstance(tones_payload, dict) else {}
+        return GenerationState(
+            issue_id=issue_row.issue_id,
+            title=issue_row.title,
+            translated_title=issue_row.translated_title,
+            source_name=issue_row.source_name,
+            source_url=issue_row.source_url,
+            category_label=issue_row.severity,
+            score=issue_row.score,
+            status_text=status_text,
+            tones=(
+                GeneratedToneDraft("informative", "정보형", str(tone_map.get("informative") or "")),
+                GeneratedToneDraft("stimulating", "자극형", str(tone_map.get("stimulating") or "")),
+                GeneratedToneDraft("news", "뉴스형", str(tone_map.get("news") or "")),
+            ),
+        )

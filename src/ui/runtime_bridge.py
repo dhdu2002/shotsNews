@@ -99,6 +99,16 @@ class DesktopAppAdapter:
         """설정값을 저장하고 런타임을 재적용한다."""
         return self.desktop_app.save_settings(values)
 
+    def generate_issue_scripts(self, issue_id: str) -> dict[str, Any]:
+        """선택 이슈 1건의 3톤 초안을 생성해 반환한다."""
+        self.desktop_app.start()
+        return self.desktop_app.generate_issue_scripts(issue_id)
+
+    def get_issue_scripts(self, issue_id: str) -> dict[str, Any]:
+        """선택 이슈 1건의 저장된 3톤 초안을 반환한다."""
+        self.desktop_app.start()
+        return self.desktop_app.get_issue_scripts(issue_id)
+
 
 class DashboardPresenter:
     """DesktopApp 상태 딕셔너리를 화면용 상태 객체로 변환한다."""
@@ -389,6 +399,7 @@ class DashboardPresenter:
                     rank=int(issue.get("rank") or 0),
                     title=title,
                     translated_title=self._translate_title(title),
+                    issue_id=str(issue.get("issue_id") or ""),
                     source_name=self._build_issue_source_label(issue, source_url),
                     source_url=source_url,
                     category_key=category,
