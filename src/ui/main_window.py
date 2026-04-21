@@ -326,11 +326,11 @@ class DashboardMainWindow(QMainWindow):
             section_header.setStyleSheet("font-weight: 700; font-size: 14px; color: #102a43; padding-bottom: 2px;")
             section_frame.body_layout.addWidget(section_header)
 
-            tables_row = QHBoxLayout()
-            tables_row.setSpacing(12)
-            tables_row.addWidget(self._build_region_table_block("🇰🇷 국내 TOP 5", section.domestic_rows, "#1d4ed8"), 1)
-            tables_row.addWidget(self._build_region_table_block("🌍 해외 TOP 5", section.international_rows, "#047857"), 1)
-            section_frame.body_layout.addLayout(tables_row)
+            tables_column = QVBoxLayout()
+            tables_column.setSpacing(10)
+            tables_column.addWidget(self._build_region_table_block("🇰🇷 국내 TOP 5", section.domestic_rows, "#1d4ed8"))
+            tables_column.addWidget(self._build_region_table_block("🌍 해외 TOP 5", section.international_rows, "#047857"))
+            section_frame.body_layout.addLayout(tables_column)
 
             self.category_sections_layout.addWidget(section_frame)
 
