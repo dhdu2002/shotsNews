@@ -32,6 +32,7 @@ class TopIssueRow:
     rank: int
     title: str
     translated_title: str
+    issue_id: str
     source_name: str
     source_url: str
     category_key: str
@@ -61,6 +62,30 @@ class LogEntry:
     timestamp: str
     level: str
     message: str
+
+
+@dataclass(frozen=True)
+class GeneratedToneDraft:
+    """생성 탭에서 보여줄 톤별 쇼츠 초안 한 장이다."""
+
+    tone_key: str
+    tone_label: str
+    script_text: str = ""
+
+
+@dataclass(frozen=True)
+class GenerationState:
+    """선택 이슈 기준 최신 1건 쇼츠 초안 상태다."""
+
+    issue_id: str = ""
+    title: str = ""
+    translated_title: str = ""
+    source_name: str = ""
+    source_url: str = ""
+    category_label: str = ""
+    score: str = ""
+    status_text: str = "이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요."
+    tones: tuple[GeneratedToneDraft, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
