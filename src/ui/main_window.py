@@ -20,10 +20,10 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QSizePolicy,
-    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .models import CategoryTopIssueSection, DashboardState, SettingsState, TopIssueRow
+from .models import CategoryTopIssueSection, DashboardState, GenerationState, SettingsState, TopIssueRow
 from .viewmodels import DashboardViewModel
 from .widgets import LinkedStatusView, MetricCard, SectionFrame
 
@@ -117,22 +117,7 @@ class DashboardMainWindow(QMainWindow):
         issues_section.body_layout.addWidget(self.category_sections_wrap)
         self._issue_tables: list[QTableWidget] = []
 
-        logs_section = SectionFrame(
-            "최근 로그",
-            "선정 결과를 확인하면서 바로 이어서 최근 실행 흐름을 점검합니다.",
-        )
-        self.logs_list = QListWidget()
-        self.logs_list.setObjectName("logsList")
-        logs_section.body_layout.addWidget(self.logs_list)
-
-        dashboard_splitter = QSplitter(Qt.Orientation.Horizontal)
-        dashboard_splitter.setChildrenCollapsible(False)
-        dashboard_splitter.addWidget(issues_section)
-        dashboard_splitter.addWidget(logs_section)
-        dashboard_splitter.setSizes([940, 260])
-        dashboard_splitter.setStretchFactor(0, 4)
-        dashboard_splitter.setStretchFactor(1, 1)
-        dashboard_layout.addWidget(dashboard_splitter, 1)
+        dashboard_layout.addWidget(issues_section, 1)
 
         self.dashboard_scroll = QScrollArea()
         self.dashboard_scroll.setWidgetResizable(True)
@@ -197,12 +182,67 @@ class DashboardMainWindow(QMainWindow):
         source_section.body_layout.addWidget(self.source_table)
         status_layout.addWidget(source_section, 1)
 
+        logs_section = SectionFrame(
+            "최근 로그",
+            "수집, 선정, 생성 흐름의 최신 이벤트를 상태 탭 하단에서 확인합니다.",
+        )
+        self.logs_list = QListWidget()
+        self.logs_list.setObjectName("logsList")
+        logs_section.body_layout.addWidget(self.logs_list)
+        status_layout.addWidget(logs_section)
+
         self.status_scroll = QScrollArea()
         self.status_scroll.setWidgetResizable(True)
         self.status_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.status_scroll.setWidget(self.status_page)
 
         _ = self.tab_widget.addTab(self.status_scroll, "상태")
+
+        self.generation_page = QWidget()
+        generation_layout = QVBoxLayout(self.generation_page)
+        generation_layout.setContentsMargins(8, 12, 8, 8)
+        generation_layout.setSpacing(16)
+
+        generation_summary = SectionFrame(
+            "최신 쇼츠 초안",
+            "대시보드에서 선택한 최신 1건 기준으로 정보형/자극형/뉴스형 초안을 확인합니다.",
+        )
+        self.generation_title_label = QLabel("선택된 이슈가 없습니다.")
+        self.generation_title_label.setObjectName("sectionTitle")
+        self.generation_title_label.setWordWrap(True)
+        generation_summary.body_layout.addWidget(self.generation_title_label)
+
+        self.generation_meta_label = QLabel("이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요.")
+        self.generation_meta_label.setObjectName("sectionSubtitle")
+        self.generation_meta_label.setWordWrap(True)
+        generation_summary.body_layout.addWidget(self.generation_meta_label)
+
+        self.generation_source_button = QPushButton("원문 열기")
+        self.generation_source_button.setObjectName("secondaryButton")
+        self.generation_source_button.setEnabled(False)
+        generation_summary.body_layout.addWidget(self.generation_source_button, 0, Qt.AlignmentFlag.AlignLeft)
+        generation_layout.addWidget(generation_summary)
+
+        self._generation_editors: dict[str, QPlainTextEdit] = {}
+        tones_section = SectionFrame("3톤 초안")
+        for tone_key, tone_label in (("informative", "정보형"), ("stimulating", "자극형"), ("news", "뉴스형")):
+            tone_label_widget = QLabel(tone_label)
+            tone_label_widget.setStyleSheet("font-weight: 700; font-size: 14px; color: #102a43; padding-top: 4px;")
+            tones_section.body_layout.addWidget(tone_label_widget)
+
+            tone_editor = QPlainTextEdit()
+            tone_editor.setReadOnly(True)
+            tone_editor.setMinimumHeight(120)
+            self._generation_editors[tone_key] = tone_editor
+            tones_section.body_layout.addWidget(tone_editor)
+        generation_layout.addWidget(tones_section, 1)
+
+        self.generation_scroll = QScrollArea()
+        self.generation_scroll.setWidgetResizable(True)
+        self.generation_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.generation_scroll.setWidget(self.generation_page)
+
+        _ = self.tab_widget.addTab(self.generation_scroll, "생성")
 
         self.settings_page = QWidget()
         settings_layout = QVBoxLayout(self.settings_page)
@@ -252,12 +292,16 @@ class DashboardMainWindow(QMainWindow):
         _ = self.settings_button.clicked.connect(self.viewmodel.open_settings)
         _ = self.viewmodel.settings_requested.connect(self._show_settings_tab)
         _ = self.viewmodel.dashboard_state_changed.connect(self._render_dashboard_state)
+        _ = self.viewmodel.generation_state_changed.connect(self._render_generation_state)
         _ = self.viewmodel.settings_state_changed.connect(self._render_settings_state)
         _ = self.viewmodel.busy_state_changed.connect(self._set_busy_state)
         _ = self.viewmodel.progress_changed.connect(self._render_progress)
         _ = self.viewmodel.settings_saved.connect(self._on_settings_saved)
         _ = self.save_settings_button.clicked.connect(self._save_settings)
+        _ = self.generation_source_button.clicked.connect(self._open_generation_source)
         self._settings_inputs: dict[str, QLineEdit] = {}
+        self._generation_source_url = ""
+        self._render_generation_state(self.viewmodel.generation_state)
 
     def _prepare_table(self, table: QTableWidget) -> None:
         """표의 공통 표시 옵션을 맞춘다."""
@@ -282,11 +326,13 @@ class DashboardMainWindow(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
 
         table.setColumnWidth(0, 56)
         table.setColumnWidth(2, 180)
         table.setColumnWidth(3, 82)
         table.setColumnWidth(4, 82)
+        table.setColumnWidth(5, 118)
         table.setCursor(Qt.CursorShape.ArrowCursor)
 
     def _render_dashboard_state(self, state: DashboardState) -> None:
@@ -312,6 +358,24 @@ class DashboardMainWindow(QMainWindow):
         self.logs_list.clear()
         for entry in state.log_entries:
             self.logs_list.addItem(QListWidgetItem(f"[{entry.timestamp}] {entry.level} · {entry.message}"))
+
+    def _render_generation_state(self, state: GenerationState) -> None:
+        """생성 탭을 최신 1건 기준 상태로 갱신한다."""
+        display_title = state.translated_title or state.title or "선택된 이슈가 없습니다."
+        self.generation_title_label.setText(display_title)
+
+        meta_parts = [part for part in (state.category_label, state.score, state.source_name) if part]
+        meta_text = " · ".join(meta_parts)
+        if state.status_text:
+            meta_text = f"{meta_text}\n{state.status_text}" if meta_text else state.status_text
+        self.generation_meta_label.setText(meta_text or "이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요.")
+
+        self._generation_source_url = state.source_url
+        self.generation_source_button.setEnabled(bool(state.source_url))
+
+        tone_map = {tone.tone_key: tone.script_text for tone in state.tones}
+        for tone_key, editor in self._generation_editors.items():
+            editor.setPlainText(str(tone_map.get(tone_key) or ""))
 
     def _render_category_sections(self, sections: tuple[CategoryTopIssueSection, ...]) -> None:
         """카테고리별 국내/해외 Top 5 섹션을 다시 그린다."""
@@ -347,8 +411,8 @@ class DashboardMainWindow(QMainWindow):
         label.setStyleSheet(f"font-weight: 700; font-size: 13px; color: {color}; padding: 2px 0;")
         layout.addWidget(label)
 
-        table = QTableWidget(0, 5)
-        table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "점수", "상태"])
+        table = QTableWidget(0, 6)
+        table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "점수", "상태", "생성"])
         self._prepare_table(table)
         self._configure_issue_table_columns(table)
         self._fill_issue_table(table, rows)
@@ -397,7 +461,7 @@ class DashboardMainWindow(QMainWindow):
         self.refresh_button.setEnabled(not busy)
         self.settings_button.setEnabled(True)
         self.save_settings_button.setEnabled(not busy)
-        if busy:
+        if busy and self.tab_widget.currentWidget() is not self.generation_scroll:
             self.tab_widget.setCurrentWidget(self.status_scroll)
 
     def _render_progress(self, value: int, message: str, indeterminate: bool) -> None:
@@ -429,6 +493,7 @@ class DashboardMainWindow(QMainWindow):
                 self._create_issue_table_item(row.source_name),
                 self._create_issue_table_item(row.score, tooltip=row.score_tooltip, align_center=True, emphasize=True),
                 self._create_issue_table_item(row.readiness, tooltip=row.status_tooltip, align_center=True),
+                self._create_issue_table_item("", align_center=True),
             ]
             items[0].setData(Qt.ItemDataRole.UserRole + 1, row)
             for column_index, item in enumerate(items):
@@ -441,7 +506,16 @@ class DashboardMainWindow(QMainWindow):
                     item.setFont(font)
                 table.setItem(row_index, column_index, item)
             self._apply_category_palette_for_table(table, row_index, row.category_key)
+            action_button = QPushButton("초안 생성")
+            action_button.setObjectName("rowActionButton")
+            _ = action_button.clicked.connect(lambda checked=False, current_row=row: self._trigger_generate_issue(current_row))
+            table.setCellWidget(row_index, 5, action_button)
         self._adjust_issue_table_height(table, len(rows))
+
+    def _trigger_generate_issue(self, row: TopIssueRow) -> None:
+        """선택 이슈의 3톤 초안 생성을 시작하고 생성 탭으로 이동한다."""
+        self.tab_widget.setCurrentWidget(self.generation_scroll)
+        self.viewmodel.request_generate_issue_scripts(row)
 
     def _open_issue_link(self, row_index: int, column: int) -> None:
         """이슈/출처 셀 클릭 시 원문 링크를 바로 연다."""
@@ -456,6 +530,11 @@ class DashboardMainWindow(QMainWindow):
         source_url = str(item.data(Qt.ItemDataRole.UserRole) or "").strip()
         if source_url:
             _ = QDesktopServices.openUrl(QUrl(source_url))
+
+    def _open_generation_source(self) -> None:
+        """생성 탭에서 최신 이슈 원문 링크를 연다."""
+        if self._generation_source_url:
+            _ = QDesktopServices.openUrl(QUrl(self._generation_source_url))
 
     def _create_issue_table_item(
         self,
@@ -602,9 +681,21 @@ class DashboardMainWindow(QMainWindow):
                 padding: 10px 16px;
                 font-weight: 600;
             }
+            QPushButton#rowActionButton {
+                background: #eff6ff;
+                color: #1d4ed8;
+                border: 1px solid #bfdbfe;
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-weight: 600;
+            }
+            QPushButton#rowActionButton:hover {
+                background: #dbeafe;
+            }
             QTableWidget,
             QListWidget,
-            QLineEdit {
+            QLineEdit,
+            QPlainTextEdit {
                 background: white;
                 border: 1px solid #d9e2ec;
                 border-radius: 10px;
