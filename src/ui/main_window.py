@@ -11,7 +11,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QDialog,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -33,7 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .models import DashboardState, SettingsState, TopIssueRow
+from .models import CategoryTopIssueSection, DashboardState, SettingsState, TopIssueRow
 from .viewmodels import DashboardViewModel
 from .widgets import LinkedStatusView, MetricCard, SectionFrame
 
@@ -46,77 +45,6 @@ _CATEGORY_PASTELS = {
     "entertainment_trend": {"row": "#fff1f2", "accent": "#ffe4e6", "text": "#be123c"},
     "default": {"row": "#f8fafc", "accent": "#e5e7eb", "text": "#475569"},
 }
-
-
-class IssueDetailDialog(QDialog):
-    """이슈 행 클릭 시 표시되는 상세 정보 다이얼로그."""
-
-    def __init__(self, row: TopIssueRow, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("이슈 상세 정보")
-        self.setMinimumWidth(520)
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setModal(True)
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-        layout.setContentsMargins(24, 24, 24, 20)
-
-        meta = QLabel(f"#{row.rank}  ·  {row.severity}  ·  {row.score}  ·  상태: {row.readiness}")
-        meta.setStyleSheet("color: #52606d; font-size: 12px;")
-        layout.addWidget(meta)
-
-        display_title = row.translated_title if row.translated_title else row.title
-        title_lbl = QLabel(display_title)
-        title_lbl.setWordWrap(True)
-        title_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #14213d; padding-bottom: 2px;")
-        layout.addWidget(title_lbl)
-
-        if row.translated_title and row.translated_title != row.title:
-            orig_lbl = QLabel(row.title)
-            orig_lbl.setWordWrap(True)
-            orig_lbl.setStyleSheet("font-size: 12px; color: #627d98;")
-            layout.addWidget(orig_lbl)
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("background: #e5e7eb; border: none; max-height: 1px; margin: 4px 0;")
-        layout.addWidget(sep)
-
-        if row.score_tooltip:
-            score_lbl = QLabel(row.score_tooltip)
-            score_lbl.setWordWrap(True)
-            score_lbl.setStyleSheet("font-size: 13px; color: #334e68; line-height: 160%;")
-            layout.addWidget(score_lbl)
-
-        if row.category_tooltip:
-            cat_lbl = QLabel(row.category_tooltip)
-            cat_lbl.setWordWrap(True)
-            cat_lbl.setStyleSheet("font-size: 13px; color: #334e68; margin-top: 4px;")
-            layout.addWidget(cat_lbl)
-
-        layout.addStretch(1)
-
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(8)
-        if row.source_url:
-            open_btn = QPushButton(f"원문 열기  ({row.source_name})")
-            open_btn.setStyleSheet(
-                "background:#1d4ed8;color:white;border:none;"
-                "border-radius:8px;padding:8px 16px;font-weight:600;"
-            )
-            open_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(row.source_url)))
-            btn_row.addWidget(open_btn)
-        btn_row.addStretch(1)
-        close_btn = QPushButton("닫기")
-        close_btn.setStyleSheet(
-            "background:white;color:#1f2933;border:1px solid #cbd2d9;"
-            "border-radius:8px;padding:8px 16px;"
-        )
-        close_btn.clicked.connect(self.accept)
-        btn_row.addWidget(close_btn)
-        layout.addLayout(btn_row)
-
 
 class DashboardMainWindow(QMainWindow):
     """런타임 연결형 대시보드 메인 윈도우."""
@@ -179,26 +107,15 @@ class DashboardMainWindow(QMainWindow):
         dashboard_layout.setSpacing(16)
 
         issues_section = SectionFrame(
-            "오늘의 Top 5",
-            "국내·국외 각각 1위~5위 이슈와 숏폼 점수를 확인합니다.",
+            "분야별 TOP 5",
+            "5개 분류별로 국내 TOP 5 / 해외 TOP 5를 모두 확인합니다.",
         )
-        domestic_label = QLabel("🇰🇷 국내 TOP 5")
-        domestic_label.setStyleSheet("font-weight: 700; font-size: 13px; color: #1d4ed8; padding: 4px 0 2px 0;")
-        issues_section.body_layout.addWidget(domestic_label)
-        self.domestic_issues_table = QTableWidget(0, 6)
-        self.domestic_issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "점수", "상태"])
-        self._prepare_table(self.domestic_issues_table)
-        self._configure_issue_table_columns(self.domestic_issues_table)
-        issues_section.body_layout.addWidget(self.domestic_issues_table)
-
-        intl_label = QLabel("🌐 국외 TOP 5")
-        intl_label.setStyleSheet("font-weight: 700; font-size: 13px; color: #047857; padding: 8px 0 2px 0;")
-        issues_section.body_layout.addWidget(intl_label)
-        self.issues_table = QTableWidget(0, 6)
-        self.issues_table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "분류", "점수", "상태"])
-        self._prepare_table(self.issues_table)
-        self._configure_issue_table_columns(self.issues_table)
-        issues_section.body_layout.addWidget(self.issues_table)
+        self.category_sections_wrap = QWidget()
+        self.category_sections_layout = QVBoxLayout(self.category_sections_wrap)
+        self.category_sections_layout.setContentsMargins(0, 0, 0, 0)
+        self.category_sections_layout.setSpacing(14)
+        issues_section.body_layout.addWidget(self.category_sections_wrap)
+        self._issue_tables: list[QTableWidget] = []
 
         logs_section = SectionFrame(
             "최근 로그",
@@ -212,7 +129,9 @@ class DashboardMainWindow(QMainWindow):
         dashboard_splitter.setChildrenCollapsible(False)
         dashboard_splitter.addWidget(issues_section)
         dashboard_splitter.addWidget(logs_section)
-        dashboard_splitter.setSizes([800, 400])
+        dashboard_splitter.setSizes([940, 260])
+        dashboard_splitter.setStretchFactor(0, 4)
+        dashboard_splitter.setStretchFactor(1, 1)
         dashboard_layout.addWidget(dashboard_splitter, 1)
 
         self.dashboard_scroll = QScrollArea()
@@ -338,9 +257,6 @@ class DashboardMainWindow(QMainWindow):
         _ = self.viewmodel.progress_changed.connect(self._render_progress)
         _ = self.viewmodel.settings_saved.connect(self._on_settings_saved)
         _ = self.save_settings_button.clicked.connect(self._save_settings)
-        _ = self.issues_table.cellClicked.connect(self._open_issue_link)
-        _ = self.domestic_issues_table.cellClicked.connect(self._open_domestic_issue_link)
-
         self._settings_inputs: dict[str, QLineEdit] = {}
 
     def _prepare_table(self, table: QTableWidget) -> None:
@@ -354,6 +270,8 @@ class DashboardMainWindow(QMainWindow):
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         table.setFrameShape(QFrame.Shape.NoFrame)
+        table.setWordWrap(False)
+        table.setMouseTracking(True)
 
     def _configure_issue_table_columns(self, table: QTableWidget) -> None:
         """Top 5 표에서 이슈 열이 가장 넓게 보이도록 컬럼 폭을 조정한다."""
@@ -364,14 +282,12 @@ class DashboardMainWindow(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
 
         table.setColumnWidth(0, 56)
-        table.setColumnWidth(2, 210)
-        table.setColumnWidth(3, 88)
-        table.setColumnWidth(4, 76)
-        table.setColumnWidth(5, 84)
-        table.setCursor(Qt.CursorShape.PointingHandCursor)
+        table.setColumnWidth(2, 180)
+        table.setColumnWidth(3, 82)
+        table.setColumnWidth(4, 82)
+        table.setCursor(Qt.CursorShape.ArrowCursor)
 
     def _render_dashboard_state(self, state: DashboardState) -> None:
         """대시보드 탭을 최신 상태로 다시 그린다."""
@@ -391,12 +307,56 @@ class DashboardMainWindow(QMainWindow):
             for column_index, value in enumerate(values):
                 self.source_table.setItem(row_index, column_index, QTableWidgetItem(value))
 
-        self._fill_issue_table(self.domestic_issues_table, state.domestic_top_issue_rows)
-        self._fill_issue_table(self.issues_table, state.top_issue_rows)
+        self._render_category_sections(state.category_sections)
 
         self.logs_list.clear()
         for entry in state.log_entries:
             self.logs_list.addItem(QListWidgetItem(f"[{entry.timestamp}] {entry.level} · {entry.message}"))
+
+    def _render_category_sections(self, sections: tuple[CategoryTopIssueSection, ...]) -> None:
+        """카테고리별 국내/해외 Top 5 섹션을 다시 그린다."""
+        self._clear_layout(self.category_sections_layout)
+        self._issue_tables = []
+
+        for section in sections:
+            section_frame = SectionFrame(section.category_label)
+
+            total_count = len(section.domestic_rows) + len(section.international_rows)
+            section_header = QLabel(f"{section.category_label} · {total_count}개")
+            section_header.setStyleSheet("font-weight: 700; font-size: 14px; color: #102a43; padding-bottom: 2px;")
+            section_frame.body_layout.addWidget(section_header)
+
+            tables_row = QHBoxLayout()
+            tables_row.setSpacing(12)
+            tables_row.addWidget(self._build_region_table_block("🇰🇷 국내 TOP 5", section.domestic_rows, "#1d4ed8"), 1)
+            tables_row.addWidget(self._build_region_table_block("🌍 해외 TOP 5", section.international_rows, "#047857"), 1)
+            section_frame.body_layout.addLayout(tables_row)
+
+            self.category_sections_layout.addWidget(section_frame)
+
+        self.category_sections_layout.addStretch(1)
+
+    def _build_region_table_block(self, title: str, rows: tuple[TopIssueRow, ...], color: str) -> QWidget:
+        """카테고리 내부의 국내/해외 Top 5 한 블록을 구성한다."""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        label = QLabel(f"{title} · {len(rows)}개")
+        label.setStyleSheet(f"font-weight: 700; font-size: 13px; color: {color}; padding: 2px 0;")
+        layout.addWidget(label)
+
+        table = QTableWidget(0, 5)
+        table.setHorizontalHeaderLabels(["순위", "이슈", "출처", "점수", "상태"])
+        self._prepare_table(table)
+        self._configure_issue_table_columns(table)
+        self._fill_issue_table(table, rows)
+        _ = table.cellClicked.connect(self._open_issue_link)
+        self._issue_tables.append(table)
+        layout.addWidget(table)
+
+        return container
 
     def _render_settings_state(self, state: SettingsState) -> None:
         """설정 탭을 최신 편집 가능 상태로 다시 그린다."""
@@ -462,11 +422,11 @@ class DashboardMainWindow(QMainWindow):
         """이슈 테이블을 주어진 rows로 채운다."""
         table.setRowCount(len(rows))
         for row_index, row in enumerate(rows):
+            table.setRowHeight(row_index, 38)
             items = [
                 self._create_issue_table_item(str(row.rank), align_center=True),
                 self._create_issue_table_item(row.translated_title),
                 self._create_issue_table_item(row.source_name),
-                self._create_issue_table_item(row.severity, tooltip=row.category_tooltip, align_center=True),
                 self._create_issue_table_item(row.score, tooltip=row.score_tooltip, align_center=True, emphasize=True),
                 self._create_issue_table_item(row.readiness, tooltip=row.status_tooltip, align_center=True),
             ]
@@ -476,26 +436,26 @@ class DashboardMainWindow(QMainWindow):
                     item.setData(Qt.ItemDataRole.UserRole, row.source_url)
                     item.setToolTip(row.source_url)
                     item.setForeground(Qt.GlobalColor.blue)
+                    font = item.font()
+                    font.setUnderline(True)
+                    item.setFont(font)
                 table.setItem(row_index, column_index, item)
             self._apply_category_palette_for_table(table, row_index, row.category_key)
+        self._adjust_issue_table_height(table, len(rows))
 
     def _open_issue_link(self, row_index: int, column: int) -> None:
-        """국외 이슈 행 클릭 시 상세 팝업을 표시한다."""
-        self._show_issue_dialog(self.issues_table, row_index)
-
-    def _open_domestic_issue_link(self, row_index: int, column: int) -> None:
-        """국내 이슈 행 클릭 시 상세 팝업을 표시한다."""
-        self._show_issue_dialog(self.domestic_issues_table, row_index)
-
-    def _show_issue_dialog(self, table: QTableWidget, row_index: int) -> None:
-        rank_item = table.item(row_index, 0)
-        if rank_item is None:
+        """이슈/출처 셀 클릭 시 원문 링크를 바로 연다."""
+        if column not in {1, 2}:
             return
-        row_data = cast(object, rank_item.data(Qt.ItemDataRole.UserRole + 1))
-        if not isinstance(row_data, TopIssueRow):
+        table = cast(QTableWidget | None, self.sender())
+        if table is None:
             return
-        dialog = IssueDetailDialog(row_data, self)
-        _ = dialog.exec()
+        item = table.item(row_index, column)
+        if item is None:
+            return
+        source_url = str(item.data(Qt.ItemDataRole.UserRole) or "").strip()
+        if source_url:
+            _ = QDesktopServices.openUrl(QUrl(source_url))
 
     def _create_issue_table_item(
         self,
@@ -530,12 +490,34 @@ class DashboardMainWindow(QMainWindow):
                 continue
             item.setBackground(row_color)
 
-        for column_index in (3, 4):
+        for column_index in (3,):
             item = table.item(row_index, column_index)
             if item is None:
                 continue
             item.setBackground(accent_color)
             item.setForeground(text_color)
+
+    def _clear_layout(self, layout: QVBoxLayout | QHBoxLayout) -> None:
+        """동적 섹션 재구성을 위해 기존 레이아웃 자식을 비운다."""
+        while layout.count():
+            item = layout.takeAt(0)
+            if item is None:
+                continue
+            widget = item.widget()
+            child_layout = cast(object, item.layout())
+            if widget is not None:
+                widget.deleteLater()
+                continue
+            if child_layout is None:
+                continue
+            self._clear_layout(cast(QVBoxLayout | QHBoxLayout, child_layout))
+
+    def _adjust_issue_table_height(self, table: QTableWidget, row_count: int) -> None:
+        """5행 이하 표가 과도하게 늘어나지 않도록 높이를 고정한다."""
+        visible_rows = max(row_count, 1)
+        table_height = table.horizontalHeader().height() + (visible_rows * 38) + 14
+        table.setMinimumHeight(table_height)
+        table.setMaximumHeight(table_height)
 
     def _apply_styles(self) -> None:
         """대시보드 전반의 가벼운 스타일을 적용한다."""
