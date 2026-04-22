@@ -158,7 +158,8 @@ class DesktopApp:
         if issue is None:
             raise ValueError("선택한 이슈를 찾을 수 없습니다.")
 
-        script_set = self.context.script_generator.generate(issue)
+        fresh_summary = self.context.source_content_fetcher.fetch_summary(issue.source_url)
+        script_set = self.context.script_generator.generate_manual(issue, fresh_summary=fresh_summary)
         self.context.repository.save_scripts([script_set])
         return self._build_issue_script_payload(issue.issue_id)
 

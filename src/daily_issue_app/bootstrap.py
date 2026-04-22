@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from importlib import import_module
+from typing import Protocol, cast
 
 from .application.services.scheduler_service import SchedulerService
 from .config.paths import AppPaths
@@ -23,6 +25,14 @@ from .infrastructure.services.twitter_collector import TwitterXCollector
 from .infrastructure.services.youtube_collector import YouTubeCollector
 
 
+class SourceContentFetcherPort(Protocol):
+    """수동 생성 시 source_url 본문을 다시 읽어 요약한다."""
+
+    def fetch_summary(self, source_url: str) -> str | None:
+        """기사 본문 기반 새 요약을 반환한다."""
+        ...
+
+
 @dataclass(slots=True)
 class ApplicationContext:
     """코어 런타임 의존성 컨테이너."""
@@ -34,6 +44,7 @@ class ApplicationContext:
     collector: MultiSourceCollector
     ranking_service: RankingService
     script_generator: OpenAIScriptGenerator
+    source_content_fetcher: SourceContentFetcherPort
     notion_sync: NotionSyncService
     pipeline: DailyIssuePipeline | None
 
@@ -80,6 +91,12 @@ def build_application_context() -> ApplicationContext:
         api_key=settings.openai_api_key,
         timeout_seconds=settings.request_timeout_seconds,
     )
+    source_content_fetcher_module = import_module(f"{__package__}.infrastructure.services.source_content_fetcher")
+    source_content_fetcher_cls = getattr(source_content_fetcher_module, "SourceContentFetcher")
+    source_content_fetcher = cast(
+        SourceContentFetcherPort,
+        source_content_fetcher_cls(timeout_seconds=settings.request_timeout_seconds),
+    )
     notion_sync = NotionSyncService(
         database_id=settings.notion_database_id,
         notion_token=settings.notion_token,
@@ -96,6 +113,7 @@ def build_application_context() -> ApplicationContext:
         collector=collector,
         ranking_service=ranking_service,
         script_generator=script_generator,
+        source_content_fetcher=source_content_fetcher,
         notion_sync=notion_sync,
         pipeline=None,
     )

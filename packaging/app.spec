@@ -17,6 +17,7 @@ hiddenimports = [
     "daily_issue_app",
     "daily_issue_app.bootstrap",
     "daily_issue_app.infrastructure.db.schema",
+    "daily_issue_app.infrastructure.services.source_content_fetcher",
     "daily_issue_app.main",
     "feedparser",
     "httpx",
