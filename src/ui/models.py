@@ -71,6 +71,7 @@ class GeneratedToneDraft:
     tone_key: str
     tone_label: str
     script_text: str = ""
+    final_prompt_text: str = ""
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,7 @@ class GenerationState:
     category_label: str = ""
     score: str = ""
     status_text: str = "이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요."
+    chatgpt_web_url: str = ""
     tones: tuple[GeneratedToneDraft, ...] = field(default_factory=tuple)
 
 

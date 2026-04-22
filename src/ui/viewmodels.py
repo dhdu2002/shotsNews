@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from threading import Lock, Thread
 from typing import cast
+
 from PySide6.QtCore import QObject, Signal
 
 from .models import (
@@ -22,6 +23,69 @@ from .models import (
     TopIssueRow,
 )
 from .runtime_bridge import DashboardPresenter, DesktopAppAdapter
+
+_CHATGPT_WEB_URL = "https://chatgpt.com/"
+
+_TONE_GUIDES: dict[str, dict[str, str]] = {
+    "informative": {
+        "label": "정보형",
+        "template": (
+            "당신은 한국어 숏폼 콘텐츠를 다듬는 편집자입니다.\n"
+            "아래 [입력 초안]을 정보형 최종 대본으로 재작성하세요.\n\n"
+            "[작성 목표]\n"
+            "- 설명형 톤을 유지하되 정보 전달이 가장 잘 되도록 문장을 정리하세요.\n"
+            "- 핵심을 쉬운 말로 풀고, 필요하면 순서·포인트를 자연스럽게 살려 주세요.\n"
+            "- 제목을 그대로 반복하지 말고 시청자가 바로 이해할 수 있게 풀어서 설명하세요.\n"
+            "- 전문 용어는 쉬운 한국어로 바꾸거나 짧게 풀어 주세요.\n"
+            "- 초안의 사실관계와 핵심 메시지는 유지하고, 없는 내용을 추가하지 마세요.\n\n"
+            "[출력 규칙]\n"
+            "- 최종 대본 본문만 출력하세요.\n"
+            "- 설명, 메모, 제목, 번호 매기기, 따옴표, 마크다운은 넣지 마세요.\n"
+            "- 자연스러운 한국어 숏폼 내레이션 문장으로 정리하세요.\n\n"
+            "[입력 초안]\n"
+            "{초안 전문}"
+        ),
+    },
+    "stimulating": {
+        "label": "자극형",
+        "template": (
+            "당신은 한국어 숏폼 콘텐츠를 다듬는 편집자입니다.\n"
+            "아래 [입력 초안]을 자극형 최종 대본으로 재작성하세요.\n\n"
+            "[작성 목표]\n"
+            "- 강한 흡입력과 감정선은 살리되 과장, 허위, 혐오 표현 없이 설득력 있게 다듬으세요.\n"
+            "- 첫 문장은 스크롤을 멈추게 할 정도로 강해야 하지만 전체 흐름은 자연스러워야 합니다.\n"
+            "- 자극적인 표현을 쓰더라도 사실과 어긋나면 안 됩니다.\n"
+            "- 제목을 그대로 복붙하지 말고, 핵심 갈등과 포인트가 즉시 느껴지게 다시 써 주세요.\n"
+            "- 초안의 사실관계와 핵심 메시지는 유지하고, 없는 내용을 추가하지 마세요.\n\n"
+            "[출력 규칙]\n"
+            "- 최종 대본 본문만 출력하세요.\n"
+            "- 설명, 메모, 제목, 번호 매기기, 따옴표, 마크다운은 넣지 마세요.\n"
+            "- 실제 한국어 숏폼 화법처럼 리듬감 있게 정리하세요.\n\n"
+            "[입력 초안]\n"
+            "{초안 전문}"
+        ),
+    },
+    "news": {
+        "label": "뉴스형",
+        "template": (
+            "당신은 한국어 숏폼 뉴스 대본을 다듬는 편집자입니다.\n"
+            "아래 [입력 초안]을 뉴스형 최종 대본으로 재작성하세요.\n\n"
+            "[작성 목표]\n"
+            "- 리포터처럼 차분하고 신뢰감 있게 다듬으세요.\n"
+            "- 팩트 중심으로 정리하되 딱딱한 문어체보다 실제 숏폼 내레이션처럼 자연스럽게 써 주세요.\n"
+            "- 제목을 그대로 반복하지 말고, 기사 핵심이 첫 문장부터 바로 전달되게 써 주세요.\n"
+            "- URL이나 도메인이 문장에 그대로 보이면 자연스러운 매체명 표현으로 바꿔 주세요.\n"
+            "- 출처가 필요할 때도 링크를 읽지 말고 뉴스에서 말할 법한 매체명으로 정리하세요.\n"
+            "- 초안의 사실관계와 핵심 메시지는 유지하고, 없는 내용을 추가하지 마세요.\n\n"
+            "[출력 규칙]\n"
+            "- 최종 대본 본문만 출력하세요.\n"
+            "- 설명, 메모, 제목, 번호 매기기, 따옴표, 마크다운은 넣지 마세요.\n"
+            "- 실제 앵커/리포터 내레이션처럼 자연스러운 한국어 문장으로 정리하세요.\n\n"
+            "[입력 초안]\n"
+            "{초안 전문}"
+        ),
+    },
+}
 
 
 def build_mock_dashboard_state() -> DashboardState:
@@ -94,16 +158,19 @@ def build_mock_generation_state() -> GenerationState:
     """런타임 연결 전 생성 탭 기본 상태를 만든다."""
     return GenerationState(
         status_text="이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요.",
+        chatgpt_web_url=_CHATGPT_WEB_URL,
         tones=(
-            GeneratedToneDraft("informative", "정보형", ""),
-            GeneratedToneDraft("stimulating", "자극형", ""),
-            GeneratedToneDraft("news", "뉴스형", ""),
+            GeneratedToneDraft("informative", "정보형", "", ""),
+            GeneratedToneDraft("stimulating", "자극형", "", ""),
+            GeneratedToneDraft("news", "뉴스형", "", ""),
         ),
     )
 
 
 class DashboardViewModel(QObject):
     """DesktopApp 상태 조회와 사용자 액션을 조율하는 Qt 뷰모델."""
+
+    CHATGPT_WEB_URL = _CHATGPT_WEB_URL
 
     dashboard_state_changed = Signal(object)
     generation_state_changed = Signal(object)
@@ -164,6 +231,19 @@ class DashboardViewModel(QObject):
         self._generation_state = state
         self.generation_state_changed.emit(self._generation_state)
 
+    def get_chatgpt_prompt_for_tone(self, tone_key: str) -> str:
+        """UI가 복사 버튼에 바로 연결할 수 있는 톤별 ChatGPT 프롬프트를 돌려준다."""
+        for tone in self._generation_state.tones:
+            if tone.tone_key == tone_key:
+                return tone.final_prompt_text
+        return ""
+
+    def get_chatgpt_open_url(self, tone_key: str) -> str:
+        """UI가 브라우저 열기 버튼에 연결할 수 있는 ChatGPT URL을 돌려준다."""
+        if not self.get_chatgpt_prompt_for_tone(tone_key):
+            return ""
+        return self._generation_state.chatgpt_web_url
+
     def request_generate_issue_scripts(self, issue_row: TopIssueRow) -> None:
         """선택 이슈 1건의 3톤 초안 생성을 요청한다."""
         if not issue_row.issue_id:
@@ -183,6 +263,7 @@ class DashboardViewModel(QObject):
                 category_label=issue_row.severity,
                 score=issue_row.score,
                 status_text="선택한 이슈로 3톤 쇼츠 초안을 생성 중입니다.",
+                chatgpt_web_url=self.CHATGPT_WEB_URL,
                 tones=self._empty_tone_drafts(),
             )
         )
@@ -205,6 +286,7 @@ class DashboardViewModel(QObject):
                         category_label=issue_row.severity,
                         score=issue_row.score,
                         status_text=f"쇼츠 초안 생성 실패: {exc}",
+                        chatgpt_web_url=self.CHATGPT_WEB_URL,
                         tones=self._empty_tone_drafts(),
                     )
                 )
@@ -336,9 +418,9 @@ class DashboardViewModel(QObject):
     def _empty_tone_drafts() -> tuple[GeneratedToneDraft, ...]:
         """초기/실패 상태에서 공통으로 쓰는 빈 3톤 목록을 만든다."""
         return (
-            GeneratedToneDraft("informative", "정보형", ""),
-            GeneratedToneDraft("stimulating", "자극형", ""),
-            GeneratedToneDraft("news", "뉴스형", ""),
+            GeneratedToneDraft("informative", "정보형", "", ""),
+            GeneratedToneDraft("stimulating", "자극형", "", ""),
+            GeneratedToneDraft("news", "뉴스형", "", ""),
         )
 
     def _build_generation_state(
@@ -359,9 +441,40 @@ class DashboardViewModel(QObject):
             category_label=issue_row.severity,
             score=issue_row.score,
             status_text=status_text,
+            chatgpt_web_url=self.CHATGPT_WEB_URL,
             tones=(
-                GeneratedToneDraft("informative", "정보형", str(tone_map.get("informative") or "")),
-                GeneratedToneDraft("stimulating", "자극형", str(tone_map.get("stimulating") or "")),
-                GeneratedToneDraft("news", "뉴스형", str(tone_map.get("news") or "")),
+                self._build_tone_draft("informative", str(tone_map.get("informative") or "")),
+                self._build_tone_draft("stimulating", str(tone_map.get("stimulating") or "")),
+                self._build_tone_draft("news", str(tone_map.get("news") or "")),
             ),
         )
+
+    def _build_tone_draft(
+        self,
+        tone_key: str,
+        script_text: str,
+    ) -> GeneratedToneDraft:
+        """원본 초안과 ChatGPT 보정용 프롬프트를 함께 묶는다."""
+        tone_meta = _TONE_GUIDES.get(tone_key, {"label": tone_key, "template": "{초안 전문}"})
+        tone_label = str(tone_meta.get("label") or tone_key)
+        cleaned_script = script_text.strip()
+        return GeneratedToneDraft(
+            tone_key=tone_key,
+            tone_label=tone_label,
+            script_text=cleaned_script,
+            final_prompt_text=self._build_final_complete_draft_prompt(
+                tone_template=str(tone_meta.get("template") or "{초안 전문}"),
+                script_text=cleaned_script,
+            ),
+        )
+
+    @staticmethod
+    def _build_final_complete_draft_prompt(
+        tone_template: str,
+        script_text: str,
+    ) -> str:
+        """최신 생성 결과를 ChatGPT에서 최종 완성 대본으로 다듬기 위한 프롬프트를 만든다."""
+        if not script_text:
+            return ""
+
+        return tone_template.replace("{초안 전문}", script_text)

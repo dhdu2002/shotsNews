@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from PySide6.QtGui import QColor, QDesktopServices
+from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import (
@@ -221,20 +221,64 @@ class DashboardMainWindow(QMainWindow):
         self.generation_source_button.setObjectName("secondaryButton")
         self.generation_source_button.setEnabled(False)
         generation_summary.body_layout.addWidget(self.generation_source_button, 0, Qt.AlignmentFlag.AlignLeft)
+
+        self.generation_prompt_guide_label = QLabel("최종 프롬프트를 복사한 뒤 ChatGPT 웹에 직접 붙여넣어 반자동으로 마무리하세요.")
+        self.generation_prompt_guide_label.setObjectName("sectionSubtitle")
+        self.generation_prompt_guide_label.setWordWrap(True)
+        generation_summary.body_layout.addWidget(self.generation_prompt_guide_label)
+
+        generation_action_row = QWidget()
+        generation_action_layout = QHBoxLayout(generation_action_row)
+        generation_action_layout.setContentsMargins(0, 0, 0, 0)
+        generation_action_layout.setSpacing(8)
+        self.generation_chatgpt_button = QPushButton("ChatGPT 열기")
+        self.generation_chatgpt_button.setObjectName("generationChatgptButton")
+        self.generation_chatgpt_button.setEnabled(False)
+        generation_action_layout.addWidget(self.generation_chatgpt_button)
+        generation_action_layout.addStretch(1)
+        generation_summary.body_layout.addWidget(generation_action_row)
+
+        self.generation_action_status_label = QLabel("생성된 초안이 있으면 톤별 최종 프롬프트를 바로 복사할 수 있습니다.")
+        self.generation_action_status_label.setObjectName("fieldHelper")
+        self.generation_action_status_label.setWordWrap(True)
+        generation_summary.body_layout.addWidget(self.generation_action_status_label)
         generation_layout.addWidget(generation_summary)
 
         self._generation_editors: dict[str, QPlainTextEdit] = {}
+        self._generation_prompt_buttons: dict[str, QPushButton] = {}
+        self._generation_prompt_texts: dict[str, str] = {}
         tones_section = SectionFrame("3톤 초안")
         for tone_key, tone_label in (("informative", "정보형"), ("stimulating", "자극형"), ("news", "뉴스형")):
+            tone_block = QWidget()
+            tone_layout = QVBoxLayout(tone_block)
+            tone_layout.setContentsMargins(0, 0, 0, 0)
+            tone_layout.setSpacing(6)
+
             tone_label_widget = QLabel(tone_label)
             tone_label_widget.setStyleSheet("font-weight: 700; font-size: 14px; color: #102a43; padding-top: 4px;")
-            tones_section.body_layout.addWidget(tone_label_widget)
+            tone_layout.addWidget(tone_label_widget)
 
             tone_editor = QPlainTextEdit()
             tone_editor.setReadOnly(True)
             tone_editor.setMinimumHeight(120)
             self._generation_editors[tone_key] = tone_editor
-            tones_section.body_layout.addWidget(tone_editor)
+            tone_layout.addWidget(tone_editor)
+
+            prompt_row = QHBoxLayout()
+            prompt_row.setContentsMargins(0, 0, 0, 0)
+            prompt_row.setSpacing(0)
+            prompt_row.addStretch(1)
+
+            prompt_button = QPushButton(f"{tone_label} 프롬프트 복사")
+            prompt_button.setObjectName("generationActionButton")
+            prompt_button.setEnabled(False)
+            prompt_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            _ = prompt_button.setProperty("toneKey", tone_key)
+            prompt_row.addWidget(prompt_button)
+            tone_layout.addLayout(prompt_row)
+            self._generation_prompt_buttons[tone_key] = prompt_button
+
+            tones_section.body_layout.addWidget(tone_block)
         generation_layout.addWidget(tones_section, 1)
 
         self.generation_scroll = QScrollArea()
@@ -299,8 +343,14 @@ class DashboardMainWindow(QMainWindow):
         _ = self.viewmodel.settings_saved.connect(self._on_settings_saved)
         _ = self.save_settings_button.clicked.connect(self._save_settings)
         _ = self.generation_source_button.clicked.connect(self._open_generation_source)
+        for tone_key, button in self._generation_prompt_buttons.items():
+            _ = button.clicked.connect(
+                lambda checked=False, current_tone_key=tone_key: self._copy_generation_final_prompt(current_tone_key)
+            )
+        _ = self.generation_chatgpt_button.clicked.connect(self._open_chatgpt_web)
         self._settings_inputs: dict[str, QLineEdit] = {}
         self._generation_source_url = ""
+        self._generation_chatgpt_url = ""
         self._render_generation_state(self.viewmodel.generation_state)
 
     def _prepare_table(self, table: QTableWidget) -> None:
@@ -374,6 +424,20 @@ class DashboardMainWindow(QMainWindow):
         self.generation_source_button.setEnabled(bool(state.source_url))
 
         tone_map = {tone.tone_key: tone.script_text for tone in state.tones}
+        prompt_map = {tone.tone_key: tone.final_prompt_text.strip() for tone in state.tones}
+        self._generation_prompt_texts = prompt_map
+        has_any_prompt = False
+        for tone_key, button in self._generation_prompt_buttons.items():
+            has_prompt = bool(prompt_map.get(tone_key))
+            button.setEnabled(has_prompt)
+            has_any_prompt = has_any_prompt or has_prompt
+        self._generation_chatgpt_url = state.chatgpt_web_url.strip() if has_any_prompt else ""
+        self.generation_chatgpt_button.setEnabled(bool(self._generation_chatgpt_url))
+        self.generation_action_status_label.setText(
+            "복사할 톤을 고른 뒤 ChatGPT 웹을 열어 수동으로 붙여넣으세요."
+            if has_any_prompt
+            else "생성된 초안이 있으면 톤별 최종 프롬프트를 바로 복사할 수 있습니다."
+        )
         for tone_key, editor in self._generation_editors.items():
             editor.setPlainText(str(tone_map.get(tone_key) or ""))
 
@@ -536,6 +600,23 @@ class DashboardMainWindow(QMainWindow):
         if self._generation_source_url:
             _ = QDesktopServices.openUrl(QUrl(self._generation_source_url))
 
+    def _copy_generation_final_prompt(self, tone_key: str) -> None:
+        """선택한 톤의 최종 프롬프트를 클립보드에 복사한다."""
+        prompt_text = self._generation_prompt_texts.get(tone_key, "").strip()
+        if not prompt_text:
+            return
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(prompt_text)
+        tone_label_map = {"informative": "정보형", "stimulating": "자극형", "news": "뉴스형"}
+        self.generation_action_status_label.setText(
+            f"{tone_label_map.get(tone_key, tone_key)} 최종 프롬프트를 클립보드에 복사했습니다."
+        )
+
+    def _open_chatgpt_web(self) -> None:
+        """반자동 마무리를 위해 ChatGPT 웹을 연다."""
+        if self._generation_chatgpt_url:
+            _ = QDesktopServices.openUrl(QUrl(self._generation_chatgpt_url))
+
     def _create_issue_table_item(
         self,
         value: str,
@@ -690,6 +771,29 @@ class DashboardMainWindow(QMainWindow):
                 font-weight: 600;
             }
             QPushButton#rowActionButton:hover {
+                background: #dbeafe;
+            }
+            QPushButton#generationActionButton {
+                background: #ffffff;
+                color: #1f2933;
+                border: 1px solid #cbd2d9;
+                border-radius: 9px;
+                padding: 6px 10px;
+                font-weight: 600;
+            }
+            QPushButton#generationActionButton:hover:enabled {
+                background: #f8fafc;
+                border-color: #9fb3c8;
+            }
+            QPushButton#generationChatgptButton {
+                background: #eff6ff;
+                color: #1d4ed8;
+                border: 1px solid #bfdbfe;
+                border-radius: 9px;
+                padding: 8px 12px;
+                font-weight: 700;
+            }
+            QPushButton#generationChatgptButton:hover:enabled {
                 background: #dbeafe;
             }
             QTableWidget,
