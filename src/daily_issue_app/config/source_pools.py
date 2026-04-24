@@ -98,6 +98,7 @@ _DEFAULT_RSS_INTERNATIONAL: dict[IssueCategory, tuple[str, ...]] = {
         "https://deadline.com/feed/",                               # Deadline
         "https://ew.com/feed/",                                     # Entertainment Weekly
     ),
+    IssueCategory.SNS: (),
 }
 
 _DEFAULT_RSS_DOMESTIC: dict[IssueCategory, tuple[str, ...]] = {
@@ -131,9 +132,18 @@ _DEFAULT_RSS_DOMESTIC: dict[IssueCategory, tuple[str, ...]] = {
         "https://newsis.com/RSS/entertain.xml",                     # 뉴시스 연예
         "https://www.khan.co.kr/rss/rssdata/kh_entertainment.xml", # 경향신문 연예
     ),
+    IssueCategory.SNS: (),
 }
 
-_DEFAULT_REDDIT: dict[IssueCategory, tuple[str, ...]] = {}
+_DEFAULT_REDDIT: dict[IssueCategory, tuple[str, ...]] = {
+    IssueCategory.SNS: (
+        "news",
+        "worldnews",
+        "technology",
+        "socialmedia",
+        "OutOfTheLoop",
+    ),
+}
 
 _DEFAULT_YOUTUBE: dict[IssueCategory, tuple[str, ...]] = {
     IssueCategory.AI_TECH: (
@@ -149,6 +159,7 @@ _DEFAULT_YOUTUBE: dict[IssueCategory, tuple[str, ...]] = {
     IssueCategory.ENTERTAINMENT_TREND: (
         "https://www.youtube.com/feeds/videos.xml?channel_id=UC295-Dw0tDd6y5cuauRnxg",  # Billboard
     ),
+    IssueCategory.SNS: (),
 }
 
 _DEFAULT_TWITTER_X: dict[IssueCategory, tuple[str, ...]] = {
@@ -157,6 +168,7 @@ _DEFAULT_TWITTER_X: dict[IssueCategory, tuple[str, ...]] = {
     IssueCategory.SOCIETY: ("election OR policy OR \"climate change\" lang:en -is:retweet",),
     IssueCategory.HEALTH: ("vaccine OR medical OR \"mental health\" OR disease lang:en -is:retweet",),
     IssueCategory.ENTERTAINMENT_TREND: ("kpop OR viral OR celebrity OR trending lang:en -is:retweet",),
+    IssueCategory.SNS: ("viral OR trend OR controversy OR breaking OR backlash lang:en -is:retweet",),
 }
 
 
@@ -167,7 +179,7 @@ def _build_default_pools(config_path: Path) -> CategorySourcePools:
         rss_domestic=_DEFAULT_RSS_DOMESTIC,
         rss_international=_DEFAULT_RSS_INTERNATIONAL,
         youtube=_DEFAULT_YOUTUBE,
-        reddit={},
+        reddit=_DEFAULT_REDDIT,
         twitter_x=_DEFAULT_TWITTER_X,
     )
 

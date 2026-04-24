@@ -38,6 +38,11 @@ _KEYWORDS: dict[IssueCategory, tuple[str, ...]] = {
         "streaming", "netflix", "spotify", "viral", "trending",
         "아이돌", "연예인", "드라마", "뮤직비디오", "오징어", "영화 개봉",
     ),
+    IssueCategory.SNS: (
+        "viral", "trending", "reddit", "twitter", "x.com", "instagram", "tiktok",
+        "backlash", "community", "influencer", "creator", "meme", "thread",
+        "바이럴", "트렌드", "커뮤니티", "인플루언서", "릴스", "밈", "실시간 반응",
+    ),
 }
 
 

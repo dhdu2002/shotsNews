@@ -83,6 +83,11 @@ class RSSCollector:
                 "viral", "streaming", "netflix",
                 "연예", "아이돌", "영화", "드라마",
             ),
+            IssueCategory.SNS: (
+                "viral", "trending", "reddit", "x.com", "twitter", "instagram",
+                "backlash", "community", "meme", "creator", "influencer",
+                "바이럴", "트렌드", "커뮤니티", "인플루언서", "릴스",
+            ),
         }
         return mapping[category]
 

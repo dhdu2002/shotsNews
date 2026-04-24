@@ -74,6 +74,18 @@
       "twitter": [
         "entertainment OR kpop OR viral OR celebrity"
       ]
+    },
+    "sns": {
+      "reddit": [
+        "news",
+        "worldnews",
+        "technology",
+        "socialmedia",
+        "OutOfTheLoop"
+      ],
+      "twitter": [
+        "viral OR trend OR controversy OR breaking OR backlash"
+      ]
     }
   }
 }

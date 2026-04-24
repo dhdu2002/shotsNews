@@ -6,13 +6,14 @@ from enum import Enum
 
 
 class IssueCategory(str, Enum):
-    """MVP에서 사용하는 5개 카테고리."""
+    """숏폼 후보를 분류하는 카테고리 목록."""
 
     AI_TECH = "ai_tech"
     ECONOMY = "economy"
     SOCIETY = "society"
     HEALTH = "health"
     ENTERTAINMENT_TREND = "entertainment_trend"
+    SNS = "sns"
 
     @property
     def label(self) -> str:
@@ -23,6 +24,7 @@ class IssueCategory(str, Enum):
             IssueCategory.SOCIETY: "사회",
             IssueCategory.HEALTH: "건강",
             IssueCategory.ENTERTAINMENT_TREND: "연예/트렌드",
+            IssueCategory.SNS: "SNS",
         }
         return labels[self]
 
