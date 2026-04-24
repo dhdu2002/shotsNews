@@ -85,8 +85,13 @@ class GenerationState:
     source_url: str = ""
     category_label: str = ""
     score: str = ""
+    openai_status: str = "idle"
+    delivery_mode: str = "idle"
     status_text: str = "이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요."
+    prompt_guide_text: str = "OpenAI 초안이 준비되면 여기에서 확인할 수 있습니다."
+    action_helper_text: str = "생성된 결과가 있으면 톤별 버튼을 사용할 수 있습니다."
     chatgpt_web_url: str = ""
+    claude_web_url: str = ""
     tones: tuple[GeneratedToneDraft, ...] = field(default_factory=tuple)
 
 

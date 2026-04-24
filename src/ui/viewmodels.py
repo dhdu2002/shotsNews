@@ -25,68 +25,7 @@ from .models import (
 from .runtime_bridge import DashboardPresenter, DesktopAppAdapter
 
 _CHATGPT_WEB_URL = "https://chatgpt.com/"
-
-_TONE_GUIDES: dict[str, dict[str, str]] = {
-    "informative": {
-        "label": "정보형",
-        "template": (
-            "당신은 한국어 숏폼 콘텐츠를 다듬는 편집자입니다.\n"
-            "아래 [입력 초안]을 정보형 최종 대본으로 재작성하세요.\n\n"
-            "[작성 목표]\n"
-            "- 설명형 톤을 유지하되 정보 전달이 가장 잘 되도록 문장을 정리하세요.\n"
-            "- 핵심을 쉬운 말로 풀고, 필요하면 순서·포인트를 자연스럽게 살려 주세요.\n"
-            "- 제목을 그대로 반복하지 말고 시청자가 바로 이해할 수 있게 풀어서 설명하세요.\n"
-            "- 전문 용어는 쉬운 한국어로 바꾸거나 짧게 풀어 주세요.\n"
-            "- 초안의 사실관계와 핵심 메시지는 유지하고, 없는 내용을 추가하지 마세요.\n\n"
-            "[출력 규칙]\n"
-            "- 최종 대본 본문만 출력하세요.\n"
-            "- 설명, 메모, 제목, 번호 매기기, 따옴표, 마크다운은 넣지 마세요.\n"
-            "- 자연스러운 한국어 숏폼 내레이션 문장으로 정리하세요.\n\n"
-            "[입력 초안]\n"
-            "{초안 전문}"
-        ),
-    },
-    "stimulating": {
-        "label": "자극형",
-        "template": (
-            "당신은 한국어 숏폼 콘텐츠를 다듬는 편집자입니다.\n"
-            "아래 [입력 초안]을 자극형 최종 대본으로 재작성하세요.\n\n"
-            "[작성 목표]\n"
-            "- 강한 흡입력과 감정선은 살리되 과장, 허위, 혐오 표현 없이 설득력 있게 다듬으세요.\n"
-            "- 첫 문장은 스크롤을 멈추게 할 정도로 강해야 하지만 전체 흐름은 자연스러워야 합니다.\n"
-            "- 자극적인 표현을 쓰더라도 사실과 어긋나면 안 됩니다.\n"
-            "- 제목을 그대로 복붙하지 말고, 핵심 갈등과 포인트가 즉시 느껴지게 다시 써 주세요.\n"
-            "- 초안의 사실관계와 핵심 메시지는 유지하고, 없는 내용을 추가하지 마세요.\n\n"
-            "[출력 규칙]\n"
-            "- 최종 대본 본문만 출력하세요.\n"
-            "- 설명, 메모, 제목, 번호 매기기, 따옴표, 마크다운은 넣지 마세요.\n"
-            "- 실제 한국어 숏폼 화법처럼 리듬감 있게 정리하세요.\n\n"
-            "[입력 초안]\n"
-            "{초안 전문}"
-        ),
-    },
-    "news": {
-        "label": "뉴스형",
-        "template": (
-            "당신은 한국어 숏폼 뉴스 대본을 다듬는 편집자입니다.\n"
-            "아래 [입력 초안]을 뉴스형 최종 대본으로 재작성하세요.\n\n"
-            "[작성 목표]\n"
-            "- 리포터처럼 차분하고 신뢰감 있게 다듬으세요.\n"
-            "- 팩트 중심으로 정리하되 딱딱한 문어체보다 실제 숏폼 내레이션처럼 자연스럽게 써 주세요.\n"
-            "- 제목을 그대로 반복하지 말고, 기사 핵심이 첫 문장부터 바로 전달되게 써 주세요.\n"
-            "- URL이나 도메인이 문장에 그대로 보이면 자연스러운 매체명 표현으로 바꿔 주세요.\n"
-            "- 출처가 필요할 때도 링크를 읽지 말고 뉴스에서 말할 법한 매체명으로 정리하세요.\n"
-            "- 초안의 사실관계와 핵심 메시지는 유지하고, 없는 내용을 추가하지 마세요.\n\n"
-            "[출력 규칙]\n"
-            "- 최종 대본 본문만 출력하세요.\n"
-            "- 설명, 메모, 제목, 번호 매기기, 따옴표, 마크다운은 넣지 마세요.\n"
-            "- 실제 앵커/리포터 내레이션처럼 자연스러운 한국어 문장으로 정리하세요.\n\n"
-            "[입력 초안]\n"
-            "{초안 전문}"
-        ),
-    },
-}
-
+_CLAUDE_WEB_URL = "https://claude.ai/new"
 
 def build_mock_dashboard_state() -> DashboardState:
     """런타임 연결 전 기본 화면 상태를 만든다."""
@@ -157,8 +96,13 @@ def build_mock_settings_state() -> SettingsState:
 def build_mock_generation_state() -> GenerationState:
     """런타임 연결 전 생성 탭 기본 상태를 만든다."""
     return GenerationState(
+        openai_status="idle",
+        delivery_mode="idle",
         status_text="이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요.",
+        prompt_guide_text="OpenAI 초안이 준비되면 여기에서 확인할 수 있습니다.",
+        action_helper_text="생성된 결과가 있으면 톤별 버튼을 사용할 수 있습니다.",
         chatgpt_web_url=_CHATGPT_WEB_URL,
+        claude_web_url=_CLAUDE_WEB_URL,
         tones=(
             GeneratedToneDraft("informative", "정보형", "", ""),
             GeneratedToneDraft("stimulating", "자극형", "", ""),
@@ -171,6 +115,7 @@ class DashboardViewModel(QObject):
     """DesktopApp 상태 조회와 사용자 액션을 조율하는 Qt 뷰모델."""
 
     CHATGPT_WEB_URL = _CHATGPT_WEB_URL
+    CLAUDE_WEB_URL = _CLAUDE_WEB_URL
 
     dashboard_state_changed = Signal(object)
     generation_state_changed = Signal(object)
@@ -262,8 +207,13 @@ class DashboardViewModel(QObject):
                 source_url=issue_row.source_url,
                 category_label=issue_row.severity,
                 score=issue_row.score,
+                openai_status="pending",
+                delivery_mode="pending",
                 status_text="선택한 이슈로 3톤 쇼츠 초안을 생성 중입니다.",
+                prompt_guide_text="OpenAI 결과를 확인하는 중입니다.",
+                action_helper_text="완료되면 톤별 버튼을 바로 사용할 수 있습니다.",
                 chatgpt_web_url=self.CHATGPT_WEB_URL,
+                claude_web_url=self.CLAUDE_WEB_URL,
                 tones=self._empty_tone_drafts(),
             )
         )
@@ -272,7 +222,7 @@ class DashboardViewModel(QObject):
         def _generate() -> None:
             try:
                 payload = self._runtime_adapter.generate_issue_scripts(issue_row.issue_id)
-                self.set_generation_state(self._build_generation_state(issue_row, payload, "최신 1건 초안을 불러왔습니다."))
+                self.set_generation_state(self._build_generation_state(issue_row, payload))
                 self._append_log("안내", f"쇼츠 초안 생성 완료: {issue_row.translated_title}")
                 self.progress_changed.emit(100, "쇼츠 초안 생성 완료", False)
             except Exception as exc:
@@ -285,8 +235,13 @@ class DashboardViewModel(QObject):
                         source_url=issue_row.source_url,
                         category_label=issue_row.severity,
                         score=issue_row.score,
+                        openai_status="failed",
+                        delivery_mode="none",
                         status_text=f"쇼츠 초안 생성 실패: {exc}",
+                        prompt_guide_text="지금은 OpenAI 초안을 불러오지 못했습니다.",
+                        action_helper_text="지금은 복사할 프롬프트를 준비하지 못했습니다.",
                         chatgpt_web_url=self.CHATGPT_WEB_URL,
+                        claude_web_url=self.CLAUDE_WEB_URL,
                         tones=self._empty_tone_drafts(),
                     )
                 )
@@ -427,11 +382,23 @@ class DashboardViewModel(QObject):
         self,
         issue_row: TopIssueRow,
         payload: dict[str, object],
-        status_text: str,
     ) -> GenerationState:
         """런타임 생성 결과 payload를 생성 탭 상태로 변환한다."""
         tones_payload = payload.get("tones")
         tone_map = cast(dict[str, object], tones_payload) if isinstance(tones_payload, dict) else {}
+        prompts_payload = payload.get("prompts")
+        prompt_map = cast(dict[str, object], prompts_payload) if isinstance(prompts_payload, dict) else {}
+        has_any_script = any(str(value or "").strip() for value in tone_map.values())
+        has_any_prompt = any(str(value or "").strip() for value in prompt_map.values())
+        raw_openai_status = str(payload.get("openai_status") or "").strip().lower()
+        raw_delivery_mode = str(payload.get("delivery_mode") or "").strip().lower()
+        openai_status = self._normalize_openai_status(raw_openai_status, has_any_script, has_any_prompt)
+        delivery_mode = self._normalize_delivery_mode(raw_delivery_mode, openai_status, has_any_script, has_any_prompt)
+        status_text, prompt_guide_text, action_helper_text = self._build_generation_feedback(
+            openai_status,
+            delivery_mode,
+            has_any_prompt,
+        )
         return GenerationState(
             issue_id=issue_row.issue_id,
             title=issue_row.title,
@@ -440,41 +407,127 @@ class DashboardViewModel(QObject):
             source_url=issue_row.source_url,
             category_label=issue_row.severity,
             score=issue_row.score,
+            openai_status=openai_status,
+            delivery_mode=delivery_mode,
             status_text=status_text,
+            prompt_guide_text=prompt_guide_text,
+            action_helper_text=action_helper_text,
             chatgpt_web_url=self.CHATGPT_WEB_URL,
+            claude_web_url=self.CLAUDE_WEB_URL,
             tones=(
-                self._build_tone_draft("informative", str(tone_map.get("informative") or "")),
-                self._build_tone_draft("stimulating", str(tone_map.get("stimulating") or "")),
-                self._build_tone_draft("news", str(tone_map.get("news") or "")),
+                self._build_tone_draft(
+                    "informative",
+                    str(tone_map.get("informative") or ""),
+                    str(prompt_map.get("informative") or ""),
+                ),
+                self._build_tone_draft(
+                    "stimulating",
+                    str(tone_map.get("stimulating") or ""),
+                    str(prompt_map.get("stimulating") or ""),
+                ),
+                self._build_tone_draft(
+                    "news",
+                    str(tone_map.get("news") or ""),
+                    str(prompt_map.get("news") or ""),
+                ),
             ),
+        )
+
+    @staticmethod
+    def _normalize_openai_status(raw_status: str, has_any_script: bool, has_any_prompt: bool) -> str:
+        """백엔드 상태값을 UI에서 쓰는 OpenAI 결과 상태로 정규화한다."""
+        if raw_status in {"success", "succeeded", "completed", "ok"}:
+            return "success"
+        if raw_status in {"failed", "failure", "error"}:
+            return "failed"
+        if raw_status in {"skipped", "skip"}:
+            return "skipped"
+        if raw_status in {"unavailable", "disabled", "offline"}:
+            return "unavailable"
+        if raw_status in {"pending", "running", "processing"}:
+            return "pending"
+        if has_any_script:
+            return "success"
+        if has_any_prompt:
+            return "skipped"
+        return "idle"
+
+    @staticmethod
+    def _normalize_delivery_mode(
+        raw_mode: str,
+        openai_status: str,
+        has_any_script: bool,
+        has_any_prompt: bool,
+    ) -> str:
+        """백엔드 전달 방식을 UI에서 쓰는 모드 값으로 정규화한다."""
+        if raw_mode in {"openai", "openai_success", "openai_draft", "generated"}:
+            return "openai"
+        if raw_mode in {"external_prompt", "external_copy", "prompt_copy", "prompt_only", "fallback_prompt"}:
+            return "external_prompt"
+        if raw_mode in {"pending", "running", "processing"}:
+            return "pending"
+        if has_any_script or openai_status == "success":
+            return "openai"
+        if has_any_prompt or openai_status in {"failed", "skipped", "unavailable"}:
+            return "external_prompt"
+        return "none"
+
+    @staticmethod
+    def _build_generation_feedback(
+        openai_status: str,
+        delivery_mode: str,
+        has_any_prompt: bool,
+    ) -> tuple[str, str, str]:
+        """생성 탭 상단과 액션 영역에 보여줄 문구를 만든다."""
+        if delivery_mode == "openai" and openai_status == "success":
+            return (
+                "OpenAI 초안을 불러왔습니다.",
+                "OpenAI가 만든 3톤 초안을 바로 검토하세요.",
+                "프롬프트 복사는 필요할 때만 사용하세요.",
+            )
+        if delivery_mode == "external_prompt":
+            if openai_status == "failed":
+                status_text = "OpenAI 생성에 실패해 외부 복사 프롬프트를 보여줍니다."
+            elif openai_status == "unavailable":
+                status_text = "OpenAI를 사용할 수 없어 외부 복사 프롬프트를 보여줍니다."
+            else:
+                status_text = "OpenAI 초안을 건너뛰고 외부 복사 프롬프트를 보여줍니다."
+            prompt_guide_text = (
+                "톤별 프롬프트를 복사해 ChatGPT 또는 Claude 웹에서 이어서 생성하세요."
+                if has_any_prompt
+                else "외부 복사 프롬프트를 준비 중입니다."
+            )
+            action_helper_text = (
+                "복사할 톤을 고른 뒤 ChatGPT 또는 Claude 웹에 붙여넣으세요."
+                if has_any_prompt
+                else "복사할 프롬프트가 준비되면 톤별 버튼을 사용할 수 있습니다."
+            )
+            return status_text, prompt_guide_text, action_helper_text
+        if openai_status == "pending" or delivery_mode == "pending":
+            return (
+                "선택한 이슈로 3톤 쇼츠 초안을 생성 중입니다.",
+                "OpenAI 결과를 확인하는 중입니다.",
+                "완료되면 톤별 버튼을 바로 사용할 수 있습니다.",
+            )
+        return (
+            "이슈 행의 생성 버튼을 눌러 최신 쇼츠 초안을 만드세요.",
+            "OpenAI 초안이 준비되면 여기에서 확인할 수 있습니다.",
+            "생성된 결과가 있으면 톤별 버튼을 사용할 수 있습니다.",
         )
 
     def _build_tone_draft(
         self,
         tone_key: str,
         script_text: str,
+        prompt_text: str,
     ) -> GeneratedToneDraft:
-        """원본 초안과 ChatGPT 보정용 프롬프트를 함께 묶는다."""
-        tone_meta = _TONE_GUIDES.get(tone_key, {"label": tone_key, "template": "{초안 전문}"})
-        tone_label = str(tone_meta.get("label") or tone_key)
+        """원본 초안과 공통 생성 프롬프트를 함께 묶는다."""
+        tone_label_map = {"informative": "정보형", "stimulating": "자극형", "news": "뉴스형"}
+        tone_label = tone_label_map.get(tone_key, tone_key)
         cleaned_script = script_text.strip()
         return GeneratedToneDraft(
             tone_key=tone_key,
             tone_label=tone_label,
             script_text=cleaned_script,
-            final_prompt_text=self._build_final_complete_draft_prompt(
-                tone_template=str(tone_meta.get("template") or "{초안 전문}"),
-                script_text=cleaned_script,
-            ),
+            final_prompt_text=prompt_text.strip(),
         )
-
-    @staticmethod
-    def _build_final_complete_draft_prompt(
-        tone_template: str,
-        script_text: str,
-    ) -> str:
-        """최신 생성 결과를 ChatGPT에서 최종 완성 대본으로 다듬기 위한 프롬프트를 만든다."""
-        if not script_text:
-            return ""
-
-        return tone_template.replace("{초안 전문}", script_text)

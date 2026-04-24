@@ -9,12 +9,12 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from ...domain.enums import ScriptTone
-from ...domain.models import IssueScriptSet, ManualScriptGenerationResult, PersistedIssue
+from ...domain.models import IssueScriptSet, PersistedIssue
 from ...prompts import build_combined_generation_prompt, build_tone_prompts
 
 
 class OpenAIScriptGenerator:
-    """OpenAI로 3톤 숏폼 대본을 동적 생성하고, API 미사용 시 기사 요약을 반환한다."""
+    """OpenAI를 우선 사용하고, 실패 시 로컬 문구로 대체한다."""
 
     def __init__(self, model: str, api_key: str, timeout_seconds: int = 25) -> None:
         self._model: str = model
@@ -26,44 +26,10 @@ class OpenAIScriptGenerator:
         scripts = self._generate_scripts(issue)
         return IssueScriptSet(issue_id=issue.issue_id, scripts_by_tone=scripts)
 
-    def generate_manual(self, issue: PersistedIssue, fresh_summary: str | None = None) -> ManualScriptGenerationResult:
-        """수동 생성에서는 OpenAI 성공 여부와 외부 복사 모드까지 함께 반환한다."""
-        use_fresh_summary = bool(fresh_summary and fresh_summary.strip())
-        effective_summary = fresh_summary if use_fresh_summary else None
-        prompts = build_tone_prompts(issue, fresh_summary=effective_summary)
-
-        if not self._api_key:
-            fallback_scripts = self._build_local_scripts(issue, fresh_summary=effective_summary)
-            return ManualScriptGenerationResult(
-                issue_id=issue.issue_id,
-                scripts_by_tone=fallback_scripts,
-                prompts_by_tone=prompts,
-                openai_status="skipped",
-                delivery_mode="external_copy",
-                openai_error="OPENAI_API_KEY가 없어 외부 복사용 공통 프롬프트를 표시합니다.",
-            )
-
-        generated, openai_error = self._generate_with_openai(issue, fresh_summary=effective_summary)
-        if generated and any(generated.values()):
-            rewritten = self._rewrite_scripts_if_needed(issue, generated, fresh_summary=fresh_summary)
-            return ManualScriptGenerationResult(
-                issue_id=issue.issue_id,
-                scripts_by_tone=rewritten,
-                prompts_by_tone=prompts,
-                openai_status="success",
-                delivery_mode="openai",
-                openai_error="",
-            )
-
-        fallback_scripts = self._build_local_scripts(issue, fresh_summary=effective_summary)
-        return ManualScriptGenerationResult(
-            issue_id=issue.issue_id,
-            scripts_by_tone=fallback_scripts,
-            prompts_by_tone=prompts,
-            openai_status="failed",
-            delivery_mode="external_copy",
-            openai_error=openai_error or "OpenAI 응답을 초안으로 변환하지 못해 외부 복사용 공통 프롬프트를 표시합니다.",
-        )
+    def generate_manual(self, issue: PersistedIssue, fresh_summary: str | None = None) -> IssueScriptSet:
+        """수동 생성에서는 재수집한 기사 요약을 우선 사용해 3톤 스크립트를 만든다."""
+        scripts = self._generate_scripts(issue, fresh_summary=fresh_summary, manual_mode=True)
+        return IssueScriptSet(issue_id=issue.issue_id, scripts_by_tone=scripts)
 
     def _generate_scripts(
         self,
@@ -74,20 +40,25 @@ class OpenAIScriptGenerator:
         """기본/수동 생성 공통 로직을 수행한다."""
         use_fresh_summary = bool(fresh_summary and fresh_summary.strip())
         if self._api_key:
-            generated, _ = self._generate_with_openai(issue, fresh_summary=fresh_summary if use_fresh_summary else None)
-            if generated and any(generated.values()):
+            generated = self._generate_with_openai(issue, fresh_summary=fresh_summary if use_fresh_summary else None)
+            if generated:
                 if manual_mode:
                     return self._rewrite_scripts_if_needed(issue, generated, fresh_summary=fresh_summary)
                 return generated
 
-        # API 키 없음 또는 OpenAI 호출 실패 → 기사 요약 반환
-        return self._build_local_scripts(issue, fresh_summary=fresh_summary if use_fresh_summary else None)
+        scripts = self._build_local_scripts(
+            issue,
+            fresh_summary=fresh_summary if self._can_use_fresh_summary_without_translation(fresh_summary) else None,
+        )
+        if manual_mode:
+            return self._apply_local_naturalness_cleanup(scripts)
+        return scripts
 
     def _generate_with_openai(
         self,
         issue: PersistedIssue,
         fresh_summary: str | None = None,
-    ) -> tuple[dict[ScriptTone, str] | None, str]:
+    ) -> dict[ScriptTone, str] | None:
         prompt = self._build_openai_prompt(issue, fresh_summary=fresh_summary)
         body = {
             "model": self._model,
@@ -99,15 +70,12 @@ class OpenAIScriptGenerator:
                         "반드시 사람이 바로 읽을 수 있는 자연스러운 대본 초안만 작성해야 하며 "
                         "해외 기사나 영어 원문이라도 고유명사 외에는 모두 자연스러운 한국어로 풀어써야 한다. "
                         "제목 문장을 반복하지 말고 기사 본문 의미를 한국어 구어체로 재구성해야 한다. "
-                        "HTML, 마크업, 디버그 문자열, JSON 설명, 모델명 노출을 절대 포함하지 않는다. "
-                        "매 생성마다 섹션 구성·첫 문장 진입 방식·문장 리듬을 이슈 성격에 맞게 스스로 판단해서 다르게 선택해야 한다. "
-                        "고정된 문장 패턴('여러분 이번 이슈는', '세 가지만 보면', '제목만 보면' 등 상투어)을 반복하지 않는다. "
-                        "같은 이슈라도 매번 다른 구조와 호흡으로 작성한다는 것을 최우선 원칙으로 삼는다."
+                        "HTML, 마크업, 디버그 문자열, JSON 설명, 모델명 노출을 절대 포함하지 않는다."
                     ),
                 },
                 {"role": "user", "content": prompt},
             ],
-            "temperature": 0.9,
+            "temperature": 0.7,
         }
         request = Request(
             url="https://api.openai.com/v1/chat/completions",
@@ -123,9 +91,9 @@ class OpenAIScriptGenerator:
                 payload = json.loads(response.read().decode("utf-8"))
             content = payload["choices"][0]["message"]["content"]
             parsed = json.loads(content)
-            return self._coerce_generated_scripts(parsed, issue, fresh_summary=fresh_summary), ""
-        except (URLError, TimeoutError, ValueError, KeyError, TypeError) as exc:
-            return None, f"{exc.__class__.__name__}: {exc}"
+            return self._coerce_generated_scripts(parsed, issue, fresh_summary=fresh_summary)
+        except (URLError, TimeoutError, ValueError, KeyError, TypeError):
+            return None
 
     def _build_openai_prompt(self, issue: PersistedIssue, fresh_summary: str | None = None) -> str:
         """사용자 지정 형식에 맞춘 3톤 동시 생성 프롬프트를 만든다."""
@@ -134,25 +102,46 @@ class OpenAIScriptGenerator:
     def _coerce_generated_scripts(
         self,
         parsed: object,
-        _issue: PersistedIssue,
+        issue: PersistedIssue,
         fresh_summary: str | None = None,
     ) -> dict[ScriptTone, str]:
-        """OpenAI 응답에서 각 톤 값을 추출한다. 누락된 톤은 빈 문자열로 둔다."""
-        del fresh_summary
-        source = parsed if isinstance(parsed, dict) else {}
-        return {
+        """OpenAI 응답에서 비어 있거나 누락된 톤은 로컬 대본으로 보완한다."""
+        source = parsed if isinstance(parsed, dict) else None
+        scripts = self._build_local_scripts(issue, fresh_summary=fresh_summary)
+
+        if source is None:
+            return scripts
+
+        value_map = {
             ScriptTone.INFORMATIVE: self._sanitize_script_output(source.get("informative")),
             ScriptTone.STIMULATING: self._sanitize_script_output(source.get("stimulating")),
             ScriptTone.NEWS: self._sanitize_script_output(source.get("news")),
         }
+        for tone, value in value_map.items():
+            if value:
+                scripts[tone] = value
+        return scripts
 
     def _build_local_scripts(
         self,
         issue: PersistedIssue,
         fresh_summary: str | None = None,
     ) -> dict[ScriptTone, str]:
-        """OpenAI 미사용/실패 시 공통 톤 프롬프트를 그대로 반환한다."""
+        """OpenAI 실패 시에도 바로 쓸 수 있는 3톤 숏폼 초안을 만든다."""
         return build_tone_prompts(issue, fresh_summary=fresh_summary)
+
+    def _build_video_composition_block(self, tone_label: str, source_label: str, lead_fact: str) -> str:
+        """OpenAI 실패 시에도 붙일 간단한 쇼츠 영상 구성안을 만든다."""
+        return (
+            "[쇼츠 영상 구성]\n"
+            "전체 권장 길이: 45~60초\n"
+            f"0~5초 | 핵심 훅 문장을 크게 노출하고 관련 대표 이미지 또는 헤드라인 컷 사용 | 자막은 한 줄 강조형\n"
+            f"6~20초 | {lead_fact}와 연결되는 기사 화면, 수치 카드, 관련 B-roll 사용 | 자막은 핵심 수치 중심으로 짧게\n"
+            f"21~40초 | {tone_label} 톤에 맞는 설명 흐름과 기사 본문 요약 장면 구성 | 자막은 문장형보다 포인트형으로 분절\n"
+            f"41~55초 | 출처 {source_label}와 함께 핵심 의미/정리 장면 배치 | 자막은 결론 문장을 안정적으로 노출\n"
+            "56~60초 | 저장·공유 유도 문장과 엔드 카드 사용 | 자막은 마지막 한 줄만 남기기\n"
+            "BGM 및 편집 주의사항: 내레이션이 묻히지 않게 BGM은 낮게 유지하고, 컷 전환은 문장 리듬에 맞춰 과하지 않게 정리하세요."
+        )
 
     def _build_core_message(self, issue: PersistedIssue, fresh_summary: str | None = None) -> str:
         """HTML이 제거된 핵심 메시지 한 줄을 만든다."""
