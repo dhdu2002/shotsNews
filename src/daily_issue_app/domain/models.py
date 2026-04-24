@@ -23,12 +23,12 @@ class ShortFormScoreBreakdown:
     def total(self) -> float:
         """6개 요인의 가중 합산 총점을 반환한다."""
         return round(
-            (self.latestness * 0.24)
-            + (self.hook_strength * 0.20)
-            + (self.popularity * 0.18)
-            + (self.controversy * 0.14)
-            + (self.ad_friendly * 0.10)
-            + (self.info_density * 0.14),
+            (self.latestness * 0.36)
+            + (self.popularity * 0.24)
+            + (self.hook_strength * 0.16)
+            + (self.controversy * 0.10)
+            + (self.info_density * 0.08)
+            + (self.ad_friendly * 0.06),
             2,
         )
 
@@ -116,6 +116,22 @@ class IssueScriptSet:
 
     issue_id: str
     scripts_by_tone: dict[ScriptTone, str] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ManualScriptGenerationResult:
+    """수동 1건 생성 시 UI까지 전달할 결과와 메타데이터."""
+
+    issue_id: str
+    scripts_by_tone: dict[ScriptTone, str] = field(default_factory=dict)
+    prompts_by_tone: dict[ScriptTone, str] = field(default_factory=dict)
+    openai_status: str = "unknown"
+    delivery_mode: str = "none"
+    openai_error: str = ""
+
+    def to_issue_script_set(self) -> IssueScriptSet:
+        """저장소에 저장할 기본 스크립트 세트로 변환한다."""
+        return IssueScriptSet(issue_id=self.issue_id, scripts_by_tone=self.scripts_by_tone)
 
 
 @dataclass(slots=True)

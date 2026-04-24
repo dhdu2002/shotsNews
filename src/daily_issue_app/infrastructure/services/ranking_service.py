@@ -171,7 +171,7 @@ class RankingService:
         return self._clamp(0.0, 3.8 + (emphasis_count * 0.7) + (keyword_hits * 1.1) + (number_hits * 0.4) + length_bonus)
 
     def _score_popularity(self, candidate: IssueCandidate, text: str) -> float:
-        """소스 성격과 기존 힌트를 함께 반영해 대중성을 계산한다."""
+        """소스 성격과 실제 반응/수치 힌트 중심으로 화제성을 계산한다."""
         lower_text = text.lower()
         number_hits = len(self._NUMBER_PATTERN.findall(lower_text))
         social_hits = sum(
@@ -180,8 +180,7 @@ class RankingService:
             if keyword in lower_text
         )
         base = self._SOURCE_POPULARITY_BASE.get(candidate.source_type, 5.0)
-        hint_boost = min(candidate.score_hint * 0.9, 2.5)
-        return self._clamp(0.0, base + hint_boost + (number_hits * 0.25) + (social_hits * 0.55))
+        return self._clamp(0.0, base + (number_hits * 0.25) + (social_hits * 0.55))
 
     def _score_controversy(self, candidate: IssueCandidate, text: str) -> float:
         """의견 충돌 가능성과 토론 유발 요소를 계산한다."""
