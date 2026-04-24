@@ -43,6 +43,7 @@ _CATEGORY_PASTELS = {
     "society": {"row": "#f3e8ff", "accent": "#e9d5ff", "text": "#7e22ce"},
     "health": {"row": "#ecfdf5", "accent": "#d1fae5", "text": "#047857"},
     "entertainment_trend": {"row": "#fff1f2", "accent": "#ffe4e6", "text": "#be123c"},
+    "sns": {"row": "#f5f3ff", "accent": "#ddd6fe", "text": "#6d28d9"},
     "default": {"row": "#f8fafc", "accent": "#e5e7eb", "text": "#475569"},
 }
 
@@ -108,7 +109,7 @@ class DashboardMainWindow(QMainWindow):
 
         issues_section = SectionFrame(
             "분야별 TOP 5",
-            "5개 분류별로 국내 TOP 5 / 해외 TOP 5를 모두 확인합니다.",
+            "분류별로 국내 TOP 5 / 해외 TOP 5를 모두 확인합니다.",
         )
         self.category_sections_wrap = QWidget()
         self.category_sections_layout = QVBoxLayout(self.category_sections_wrap)
@@ -222,7 +223,7 @@ class DashboardMainWindow(QMainWindow):
         self.generation_source_button.setEnabled(False)
         generation_summary.body_layout.addWidget(self.generation_source_button, 0, Qt.AlignmentFlag.AlignLeft)
 
-        self.generation_prompt_guide_label = QLabel("최종 프롬프트를 복사한 뒤 ChatGPT 웹에 직접 붙여넣어 반자동으로 마무리하세요.")
+        self.generation_prompt_guide_label = QLabel("OpenAI 초안이 준비되면 여기에서 확인할 수 있습니다.")
         self.generation_prompt_guide_label.setObjectName("sectionSubtitle")
         self.generation_prompt_guide_label.setWordWrap(True)
         generation_summary.body_layout.addWidget(self.generation_prompt_guide_label)
@@ -232,13 +233,17 @@ class DashboardMainWindow(QMainWindow):
         generation_action_layout.setContentsMargins(0, 0, 0, 0)
         generation_action_layout.setSpacing(8)
         self.generation_chatgpt_button = QPushButton("ChatGPT 열기")
-        self.generation_chatgpt_button.setObjectName("generationChatgptButton")
+        self.generation_chatgpt_button.setObjectName("generationWebOpenButton")
         self.generation_chatgpt_button.setEnabled(False)
         generation_action_layout.addWidget(self.generation_chatgpt_button)
+        self.generation_claude_button = QPushButton("Claude 열기")
+        self.generation_claude_button.setObjectName("generationWebOpenButton")
+        self.generation_claude_button.setEnabled(False)
+        generation_action_layout.addWidget(self.generation_claude_button)
         generation_action_layout.addStretch(1)
         generation_summary.body_layout.addWidget(generation_action_row)
 
-        self.generation_action_status_label = QLabel("생성된 초안이 있으면 톤별 최종 프롬프트를 바로 복사할 수 있습니다.")
+        self.generation_action_status_label = QLabel("생성된 결과가 있으면 톤별 버튼을 사용할 수 있습니다.")
         self.generation_action_status_label.setObjectName("fieldHelper")
         self.generation_action_status_label.setWordWrap(True)
         generation_summary.body_layout.addWidget(self.generation_action_status_label)
@@ -348,9 +353,11 @@ class DashboardMainWindow(QMainWindow):
                 lambda checked=False, current_tone_key=tone_key: self._copy_generation_final_prompt(current_tone_key)
             )
         _ = self.generation_chatgpt_button.clicked.connect(self._open_chatgpt_web)
+        _ = self.generation_claude_button.clicked.connect(self._open_claude_web)
         self._settings_inputs: dict[str, QLineEdit] = {}
         self._generation_source_url = ""
         self._generation_chatgpt_url = ""
+        self._generation_claude_url = ""
         self._render_generation_state(self.viewmodel.generation_state)
 
     def _prepare_table(self, table: QTableWidget) -> None:
@@ -432,12 +439,11 @@ class DashboardMainWindow(QMainWindow):
             button.setEnabled(has_prompt)
             has_any_prompt = has_any_prompt or has_prompt
         self._generation_chatgpt_url = state.chatgpt_web_url.strip() if has_any_prompt else ""
+        self._generation_claude_url = state.claude_web_url.strip() if has_any_prompt else ""
         self.generation_chatgpt_button.setEnabled(bool(self._generation_chatgpt_url))
-        self.generation_action_status_label.setText(
-            "복사할 톤을 고른 뒤 ChatGPT 웹을 열어 수동으로 붙여넣으세요."
-            if has_any_prompt
-            else "생성된 초안이 있으면 톤별 최종 프롬프트를 바로 복사할 수 있습니다."
-        )
+        self.generation_claude_button.setEnabled(bool(self._generation_claude_url))
+        self.generation_prompt_guide_label.setText(state.prompt_guide_text)
+        self.generation_action_status_label.setText(state.action_helper_text)
         for tone_key, editor in self._generation_editors.items():
             editor.setPlainText(str(tone_map.get(tone_key) or ""))
 
@@ -617,6 +623,11 @@ class DashboardMainWindow(QMainWindow):
         if self._generation_chatgpt_url:
             _ = QDesktopServices.openUrl(QUrl(self._generation_chatgpt_url))
 
+    def _open_claude_web(self) -> None:
+        """반자동 마무리를 위해 Claude 웹을 연다."""
+        if self._generation_claude_url:
+            _ = QDesktopServices.openUrl(QUrl(self._generation_claude_url))
+
     def _create_issue_table_item(
         self,
         value: str,
@@ -785,7 +796,7 @@ class DashboardMainWindow(QMainWindow):
                 background: #f8fafc;
                 border-color: #9fb3c8;
             }
-            QPushButton#generationChatgptButton {
+            QPushButton#generationWebOpenButton {
                 background: #eff6ff;
                 color: #1d4ed8;
                 border: 1px solid #bfdbfe;
@@ -793,7 +804,7 @@ class DashboardMainWindow(QMainWindow):
                 padding: 8px 12px;
                 font-weight: 700;
             }
-            QPushButton#generationChatgptButton:hover:enabled {
+            QPushButton#generationWebOpenButton:hover:enabled {
                 background: #dbeafe;
             }
             QTableWidget,

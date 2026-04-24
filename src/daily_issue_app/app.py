@@ -13,7 +13,9 @@ from typing import Any, Callable, cast
 from .bootstrap import build_application_context
 from .config.settings import save_settings_file
 from .domain.enums import ScriptTone
+from .domain.models import ManualScriptGenerationResult
 from .infrastructure.db.schema import bootstrap_sqlite_schema
+from .prompts import build_tone_prompt_payload, merge_tone_prompt_payload
 
 if TYPE_CHECKING:
     from .bootstrap import ApplicationContext
@@ -107,7 +109,7 @@ class DesktopApp:
         top_issues = self._normalize_top_issue_payloads(
             context.repository.list_ranked_issue_summaries(
                 latest_run_date,
-                limit=5 * 5 * 2,  # 5분류 × Top 5 × 2지역 = 최대 50개
+                limit=len(IssueCategory) * context.settings.top_k * 2,
             )
         )
         source_failures = []
@@ -159,9 +161,13 @@ class DesktopApp:
             raise ValueError("선택한 이슈를 찾을 수 없습니다.")
 
         fresh_summary = self.context.source_content_fetcher.fetch_summary(issue.source_url)
-        script_set = self.context.script_generator.generate_manual(issue, fresh_summary=fresh_summary)
-        self.context.repository.save_scripts([script_set])
-        return self._build_issue_script_payload(issue.issue_id)
+        generation_result = self.context.script_generator.generate_manual(issue, fresh_summary=fresh_summary)
+        self.context.repository.save_scripts([generation_result.to_issue_script_set()])
+        return self._build_issue_script_payload(
+            issue.issue_id,
+            fresh_summary=fresh_summary,
+            generation_result=generation_result,
+        )
 
     def get_issue_scripts(self, issue_id: str) -> dict[str, Any]:
         """선택 이슈 1건의 저장된 3톤 스크립트를 반환한다."""
@@ -308,7 +314,12 @@ class DesktopApp:
             },
         ]
 
-    def _build_issue_script_payload(self, issue_id: str) -> dict[str, Any]:
+    def _build_issue_script_payload(
+        self,
+        issue_id: str,
+        fresh_summary: str | None = None,
+        generation_result: ManualScriptGenerationResult | None = None,
+    ) -> dict[str, Any]:
         """이슈 ID 기준 초안/메타정보를 UI 친화 payload로 정리한다."""
         assert self.context is not None
 
@@ -316,7 +327,24 @@ class DesktopApp:
         if issue is None:
             raise ValueError("선택한 이슈를 찾을 수 없습니다.")
 
-        scripts = self.context.repository.list_scripts_for_issue(issue_id)
+        prompt_payload = build_tone_prompt_payload(issue, fresh_summary=fresh_summary)
+
+        if generation_result is not None:
+            scripts = generation_result.scripts_by_tone
+            prompt_payload = merge_tone_prompt_payload(
+                generation_result.prompts_by_tone,
+                issue,
+                fresh_summary=fresh_summary,
+            )
+            openai_status = generation_result.openai_status
+            delivery_mode = generation_result.delivery_mode
+            openai_error = generation_result.openai_error
+        else:
+            scripts = self.context.repository.list_scripts_for_issue(issue_id)
+            openai_status = "unknown"
+            delivery_mode = "none"
+            openai_error = ""
+
         tone_payload: dict[str, str] = {}
         for tone in ScriptTone:
             tone_payload[tone.value] = str(scripts.get(tone) or "")
@@ -328,6 +356,10 @@ class DesktopApp:
             "category": issue.category.value,
             "score": issue.score,
             "tones": tone_payload,
+            "prompts": prompt_payload,
+            "openai_status": openai_status,
+            "delivery_mode": delivery_mode,
+            "openai_error": openai_error,
         }
 
     def _build_source_pool_summary(self) -> str:
