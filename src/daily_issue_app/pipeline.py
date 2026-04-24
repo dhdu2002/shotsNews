@@ -35,13 +35,7 @@ class DailyIssuePipeline:
         run_id = self._context.repository.create_pipeline_run(run_date)
         request = DailyPipelineRequest(
             run_date=run_date,
-            categories=(
-                IssueCategory.AI_TECH,
-                IssueCategory.ECONOMY,
-                IssueCategory.SOCIETY,
-                IssueCategory.HEALTH,
-                IssueCategory.ENTERTAINMENT_TREND,
-            ),
+            categories=tuple(IssueCategory),
         )
         try:
             self._emit_progress(progress_callback, 15, "이슈 수집 중")

@@ -37,6 +37,7 @@ _CATEGORY_LABELS = {
     "society": "사회",
     "health": "건강",
     "entertainment_trend": "연예/트렌드",
+    "sns": "SNS",
 }
 
 _CATEGORY_ORDER = tuple(_CATEGORY_LABELS.keys())
@@ -136,7 +137,7 @@ class DashboardPresenter:
         return DashboardState(
             window_title="데일리 이슈 데스크톱",
             dashboard_title="운영 대시보드",
-            dashboard_subtitle="5개 분류별 국내·해외 Top 5와 수집 상태, Notion 대기 현황을 한 화면에서 확인합니다.",
+            dashboard_subtitle="분류별 국내·해외 Top 5와 수집 상태, Notion 대기 현황을 한 화면에서 확인합니다.",
             overall_status=overall_status,
             overall_detail=overall_detail,
             next_run_label=self._build_next_run_label(runtime_status),
